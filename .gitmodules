@@ -1,0 +1,3 @@
+[submodule "LightAutoML_Spark"]
+	path = LightAutoML_Spark
+	url = git@github.com:fonhorst/LightAutoML_Spark.git
