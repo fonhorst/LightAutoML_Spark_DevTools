@@ -1,3 +1,7 @@
 [submodule "LightAutoML_Spark"]
 	path = LightAutoML_Spark
 	url = git@github.com:fonhorst/LightAutoML_Spark.git
+[submodule "LightAutoML_Spark_3.0.1"]
+	path = LightAutoML_Spark_3.0.1
+	url = git@github.com:fonhorst/LightAutoML_Spark.git
+	branch = distributed/feature/3.0.1
