@@ -8,7 +8,8 @@ metadata:
 spec:
   containers:
     - name: spark-submit
-      image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.2.0
+      # image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.0.1-gntv
+      image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.2.0-gntv
       imagePullPolicy: Always
       resources:
         requests:
