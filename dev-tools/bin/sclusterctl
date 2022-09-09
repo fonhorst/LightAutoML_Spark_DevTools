@@ -30,8 +30,9 @@ do
 done
 
 function build_wheel() {
-  poetry export -f requirements.txt > requirements.txt
-  poetry build
+  cd LightAutoML_Spark && poetry export -f requirements.txt > requirements-3.9.txt && cd ..
+  cd LightAutoML_Spark_3.0.1 && poetry export -f requirements.txt > requirements-3.8.txt && cd ..
+#  poetry build
 }
 
 function build_images() {
@@ -43,11 +44,19 @@ function build_images() {
 
   rm -rf ${BUILD_TMP_FOLDER}
   mkdir ${BUILD_TMP_FOLDER}
-  cp requirements.txt ${BUILD_TMP_FOLDER}
-  cp -r dist ${BUILD_TMP_FOLDER}/dist
-  cp -r examples ${BUILD_TMP_FOLDER}/examples
+  cp LightAutoML_Spark/requirements-3.9.txt ${BUILD_TMP_FOLDER}
+  cp LightAutoML_Spark_3.0.1/requirements-3.8.txt ${BUILD_TMP_FOLDER}
+
+  cp -r LightAutoML_Spark/dist/LightAutoML-0.3.0.tar.gz ${BUILD_TMP_FOLDER}/dist/LightAutoML-0.3.0-spark3.2.0.tar.gz
+  cp -r LightAutoML_Spark_3.0.1/dist/LightAutoML-0.3.0.tar.gz ${BUILD_TMP_FOLDER}/dist/LightAutoML-0.3.0-spark3.0.1.tar.gz
+
+  cp -r LightAutoML_Spark/jars/spark-lightautoml_2.12-0.1.jar ${BUILD_TMP_FOLDER}/spark-lightautoml_2.12-0.1-spark3.2.0.jar
+  cp -r LightAutoML_Spark_3.0.1/jars/spark-lightautoml_2.12-0.1.jar ${BUILD_TMP_FOLDER}/spark-lightautoml_2.12-0.1-spark3.0.1.jar
+
+  cp -r LightAutoML_Spark/examples ${BUILD_TMP_FOLDER}/examples-3.9
+  cp -r LightAutoML_Spark_3.0.1/examples ${BUILD_TMP_FOLDER}/examples-3.8
+
   cp -r dev-tools/experiments ${BUILD_TMP_FOLDER}/experiments
-  cp jars/spark-lightautoml_2.12-0.1.jar ${BUILD_TMP_FOLDER}/spark-lightautoml_2.12-0.1.jar
 
   docker build -t ${BASE_IMAGE_NAME} -f ${DOCKERFILE_FOLDER}/base.dockerfile ${BUILD_FOLDER}
   docker push ${BASE_IMAGE_NAME}
