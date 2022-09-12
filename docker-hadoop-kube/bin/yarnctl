@@ -20,8 +20,29 @@ fi
 ## declare an array variable
 declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "spark-submit")
 
+function obtain_requirements() {
+  echo "Obtaining requirements files"
+
+  cur_dir=$(pwd)
+
+#  cd ../LightAutoML_Spark && poetry export --without-hashes -f requirements.txt > ${cur_dir}/nodemanager/requirements-3.9.txt && cd ${cur_dir}
+#  cd ../LightAutoML_Spark_3.0.1 && poetry export --without-hashes -f requirements.txt > ${cur_dir}/nodemanager/requirements-3.8.txt && cd ${cur_dir}
+
+#  cp ../LightAutoML_Spark/requirements-3.9.txt ./nodemanager
+#  cp ../LightAutoML_Spark_3.0.1/requirements-3.8.txt ./nodemanager
+
+  echo "Requirements files have been obtained"
+}
+
+function delete_requirements() {
+    rm ../nodemanager/requirements*.txt
+}
+
 function build_images() {
     echo "Building required docker images..."
+
+    obtain_requirements
+
     for comp in "${components[@]}"
     do
         image="${REPO}/yarn-${comp}:${IMAGE_TAG}"
@@ -31,6 +52,8 @@ function build_images() {
 
     # TODO: add building
     # docker build --build-arg PYSPARK_VERSION=3.1.1 -t node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.1.1 spark-submit
+
+#    delete_requirements
 
     echo "The required images have been successfully built"
 }
@@ -134,6 +157,10 @@ function main () {
     echo "Executing command: ${cmd}"
 
     case "${cmd}" in
+    "obtain-reqs")
+        obtain_requirements
+        ;;
+
     "build-images")
         build_images
         ;;
