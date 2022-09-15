@@ -1,5 +1,4 @@
 import functools
-import itertools
 import logging
 import time
 import uuid
@@ -8,17 +7,43 @@ from datetime import datetime
 from random import random
 from typing import List, Optional
 
+from pandas import Series
+from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql import DataFrame as SparkDataFrame
+from pyspark.sql.functions import pandas_udf
 
 BUCKET_NUMS = 100
-INITIAL_COL_COUNT = 1000
-FP_COLS_COUNT = 1000
+INITIAL_COL_COUNT = 10
+FP_COLS_COUNT = INITIAL_COL_COUNT
 CV_COLS_COUNT = 10
 CV_FOLDS = 5
 
 logger = logging.getLogger()
+
+spark = (
+    SparkSession
+        .builder
+        .master('local[2]')
+        .config('spark.sql.autoBroadcastJoinThreshold', '-1')
+        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+        .getOrCreate()
+)
+
+
+@pandas_udf("float")
+def func_rand(s: Series) -> Series:
+    return s.map(lambda x: random())
+
+
+@pandas_udf("float")
+def func_add_up(s: Series) -> Series:
+    return s.map(lambda x: x + 2)
+
+
+@pandas_udf("float")
+def func_div(s: Series) -> Series:
+    return s.map(lambda x: x / 3)
 
 
 @contextmanager
@@ -60,8 +85,11 @@ def make_initial_dataset(col_count: int):
     return df
 
 
-def make_new_columns(df: SparkDataFrame, col_prefix: str, col_count: int):
-    new_df = df.select('id', *[F.rand().alias(f"{col_prefix}_{i}") for i in range(col_count)])
+def make_new_columns(df: SparkDataFrame, new_col_prefix: str, col_count: int):
+    def make_transformer(col_name: str, i: int):
+        return func_div(func_add_up(func_rand(col_name))).alias(f"{new_col_prefix}_{i}")
+
+    new_df = df.select('id', *[make_transformer(col_name, i) for i, col_name in zip(range(col_count), df.columns) if col_name != 'id'])
     return cache_and_materialize(new_df)
 
 
@@ -114,6 +142,17 @@ def make_crossval(name: str, df: SparkDataFrame) -> SparkDataFrame:
     joined_df = join_multiple(dfs)
 
     return joined_df
+
+
+def scenario_only_fp():
+    # preparing the base dataset
+    base_df = make_initial_dataset(col_count=INITIAL_COL_COUNT)
+    base_df = bucketize_table("base", base_df)
+    base_df = cache_and_materialize(base_df)
+
+    fp_df = make_fp("fp0", base_df, FP_COLS_COUNT)
+
+    cache_and_materialize(fp_df)
 
 
 def scenario_regular_mlpipe():
@@ -187,18 +226,12 @@ def main():
 
     # scenario_mlpipe_with_two_models()
 
-    scenario_mlpipe_with_two_fpipes_and_two_models()
+    # scenario_mlpipe_with_two_fpipes_and_two_models()
+
+    scenario_only_fp()
 
 
 if __name__ == "__main__":
-    spark = (
-        SparkSession
-        .builder
-        .master('local[2]')
-        .config('spark.sql.autoBroadcastJoinThreshold', '-1')
-        .getOrCreate()
-    )
-
     with log_exec_time("main"):
         main()
 
