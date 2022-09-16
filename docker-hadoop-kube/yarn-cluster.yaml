@@ -194,8 +194,7 @@ spec:
           emptyDir: {}
       containers:
         - name: nodemanager
-          # image: node2.bdcl:5000/yarn-nodemanager:slama-yarn-3.0.1-gntv
-          image: node2.bdcl:5000/yarn-nodemanager:slama-yarn-3.2.0-gntv
+          image: node2.bdcl:5000/yarn-nodemanager:slama-yarn-multi-spark-gntv
           imagePullPolicy: Always
           resources:
             requests:
