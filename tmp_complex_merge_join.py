@@ -8,9 +8,11 @@ from random import random
 from typing import List, Optional
 
 from pandas import Series
-from pyspark.sql import DataFrame as SparkDataFrame
+from pyspark import SparkContext
+from pyspark.sql import DataFrame as SparkDataFrame, Column
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.column import _to_java_column
 from pyspark.sql.functions import pandas_udf
 
 BUCKET_NUMS = 100
@@ -23,12 +25,20 @@ logger = logging.getLogger()
 
 spark = (
     SparkSession
-        .builder
-        .master('local[2]')
-        .config('spark.sql.autoBroadcastJoinThreshold', '-1')
-        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
-        .getOrCreate()
+    .builder
+    .master('local[2]')
+    .config("spark.jars", "spark-lightautoml_2.12-0.1.jar")
+    .config('spark.sql.autoBroadcastJoinThreshold', '-1')
+    .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+    .config("spark.sql.shuffle.partitions", "100")
+    .getOrCreate()
 )
+
+
+def test_scala_udf(col):
+    sc = SparkContext._active_spark_context
+    return Column(
+        sc._jvm.org.apache.spark.sql.lightautoml.functions.test_scala_udf(_to_java_column(col)))
 
 
 @pandas_udf("float")
@@ -89,7 +99,11 @@ def make_new_columns(df: SparkDataFrame, new_col_prefix: str, col_count: int):
     def make_transformer(col_name: str, i: int):
         return func_div(func_add_up(func_rand(col_name))).alias(f"{new_col_prefix}_{i}")
 
-    new_df = df.select('id', *[make_transformer(col_name, i) for i, col_name in zip(range(col_count), df.columns) if col_name != 'id'])
+    # new_df = df.select('id', *[make_transformer(col_name, i) for i, col_name in zip(range(col_count), df.columns) if col_name != 'id'])
+    new_df = df.select('id', *[func_rand('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
+    # new_df = df.select('id', *[F.length('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
+    # new_df = df.select('id', *[test_scala_udf('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
+
     return cache_and_materialize(new_df)
 
 
@@ -124,7 +138,7 @@ def make_fp(name: str, df: SparkDataFrame, cols_count: int) -> SparkDataFrame:
         df_layer_1 = make_new_columns(df_layer_0, f"{name}_layer1", cols_count)
         df_layer_2 = make_new_columns(df_layer_1, f"{name}_layer2", cols_count)
 
-        dfs = [df, df_layer_0, df_layer_1, df_layer_2]
+        dfs = [df_layer_0, df_layer_1, df_layer_2]
 
         joined_df = join_multiple(dfs)
 
@@ -153,6 +167,22 @@ def scenario_only_fp():
     fp_df = make_fp("fp0", base_df, FP_COLS_COUNT)
 
     cache_and_materialize(fp_df)
+
+
+def scenario_simple():
+    # preparing the base dataset
+    base_df = make_initial_dataset(col_count=INITIAL_COL_COUNT)
+    base_df = bucketize_table("base", base_df)
+    base_df = cache_and_materialize(base_df)
+
+    with JobGroup("make fp", f"Processing new columns"):
+        df_layer_0 = make_new_columns(base_df, f"new_columns_0", FP_COLS_COUNT)
+        df_layer_1 = make_new_columns(df_layer_0, f"new_columns_0", FP_COLS_COUNT)
+        df_layer_2 = make_new_columns(df_layer_1, f"new_columns_0", FP_COLS_COUNT)
+
+    joined_df = join_multiple([base_df, df_layer_0, df_layer_1, df_layer_2])
+
+    cache_and_materialize(joined_df)
 
 
 def scenario_regular_mlpipe():
@@ -228,7 +258,9 @@ def main():
 
     # scenario_mlpipe_with_two_fpipes_and_two_models()
 
-    scenario_only_fp()
+    # scenario_only_fp()
+
+    scenario_simple()
 
 
 if __name__ == "__main__":

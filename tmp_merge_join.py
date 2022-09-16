@@ -1,7 +1,12 @@
 from contextlib import contextmanager
+from random import random
 
+from pandas import Series
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.functions import udf
+from pyspark.sql.pandas.functions import pandas_udf
+from pyspark.sql.types import IntegerType
 
 
 @contextmanager
@@ -75,7 +80,13 @@ temp_df.write.mode('overwrite').format('noop').save()
 # merge join with ZippedPartitions
 df_3_bucketed.join(temp_df, on='id', how='inner').write.mode('overwrite').format('noop').save()
 
-even_df = df_4_bucketed.where(F.col('d') % 2 == 0).cache()
+
+# @pandas_udf("float")
+# def func_rand(s: Series) -> Series:
+#     return s.map(lambda x: random())
+random_udf = udf(lambda: int(random() * 100), IntegerType())
+
+even_df = df_4_bucketed.where(F.col('d') % 2 == 0).withColumn("ccc", random_udf()).cache()
 even_df.write.mode('overwrite').format('noop').save()
 
 odd_df = df_4_bucketed.where(F.col('d') % 2 == 1).cache()
