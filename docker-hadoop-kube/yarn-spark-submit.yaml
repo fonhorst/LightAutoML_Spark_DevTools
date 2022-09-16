@@ -4,11 +4,54 @@ kind: Pod
 metadata:
   annotations:
     "sidecar.istio.io/inject": "false"
+  name: spark-submit-3.0.1
+spec:
+  containers:
+    - name: spark-submit
+      image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.0.1-gntv
+      imagePullPolicy: Always
+      resources:
+        requests:
+          memory: "2Gi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "500m"
+      envFrom:
+        - configMapRef:
+            name: hadoop-env
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    "sidecar.istio.io/inject": "false"
+  name: spark-submit-3.1.1
+spec:
+  containers:
+    - name: spark-submit
+      image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.1.1-gntv
+      imagePullPolicy: Always
+      resources:
+        requests:
+          memory: "2Gi"
+          cpu: "500m"
+        limits:
+          memory: "2Gi"
+          cpu: "500m"
+      envFrom:
+        - configMapRef:
+            name: hadoop-env
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    "sidecar.istio.io/inject": "false"
   name: spark-submit-3.2.0
 spec:
   containers:
     - name: spark-submit
-      # image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.0.1-gntv
       image: node2.bdcl:5000/yarn-spark-submit:slama-yarn-3.2.0-gntv
       imagePullPolicy: Always
       resources:
