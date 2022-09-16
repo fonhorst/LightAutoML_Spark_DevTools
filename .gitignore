@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+docker-hadoop-kube/spark-submit-3.0.1/*.whl
+docker-hadoop-kube/spark-submit-3.0.1/*.jar

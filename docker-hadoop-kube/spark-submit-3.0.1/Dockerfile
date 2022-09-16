@@ -13,8 +13,6 @@ RUN bash -l -c 'echo export PYTHONPATH="$(ZIPS=(${SPARK_HOME}/python/lib/*.zip);
 ENV PATH "$PATH:$SPARK_HOME/bin"
 ENV PYSPARK_PYTHON=/usr/bin/python3
 
-RUN python3 -m pip install mlflow-skinny
-
 COPY yarn-site.xml /etc/hadoop/yarn-site.xml
 COPY core-site.xml /etc/hadoop/core-site.xml
 
@@ -24,9 +22,9 @@ ENV HADOOP_CONF_DIR="/etc/hadoop"
 RUN mkdir -p /src
 COPY submit_example.py  /src
 COPY submit.sh /src
-# COPY SparkLightAutoML-0.3.0.tar.gz /src
-COPY SparkLightAutoML-0.3.0.zip /src
+COPY SparkLightAutoML-0.3.0-py3-none-any.whl /src
 COPY tabular-preset-automl.py /src
+COPY spark-ml-pipe-lgb-light.py /src
 COPY examples_utils.py /src
 COPY tabular_config.yml /src
 COPY spark-lightautoml_2.12-0.1.jar /src
