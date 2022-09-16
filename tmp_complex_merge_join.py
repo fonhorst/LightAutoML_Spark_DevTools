@@ -82,8 +82,14 @@ def join_multiple(dfs: List[SparkDataFrame]) -> SparkDataFrame:
     return functools.reduce(lambda x_df, y_df: x_df.join(y_df, on='id', how='inner'), dfs)
 
 
-def cache_and_materialize(df: SparkDataFrame) -> SparkDataFrame:
-    df = df.cache()
+def cache_and_materialize(df: SparkDataFrame, type: str = "cache") -> SparkDataFrame:
+    if type == 'cache':
+        df = df.cache()
+    elif type == 'locchkp':
+        df = df.localCheckpoint(eager=True)
+    else:
+        raise Exception(f"Unknown type: {type}")
+
     df.write.mode('overwrite').format('noop').save()
     return df
 
@@ -95,14 +101,14 @@ def make_initial_dataset(col_count: int):
     return df
 
 
-def make_new_columns(df: SparkDataFrame, new_col_prefix: str, col_count: int):
-    def make_transformer(col_name: str, i: int):
-        return func_div(func_add_up(func_rand(col_name))).alias(f"{new_col_prefix}_{i}")
+def make_new_columns(df: SparkDataFrame, new_col_prefix: str, col_count: int, use_python_udf: bool = False):
+    # def make_transformer(col_name: str, i: int):
+    #     return func_div(func_add_up(func_rand(col_name))).alias(f"{new_col_prefix}_{i}")
 
-    # new_df = df.select('id', *[make_transformer(col_name, i) for i, col_name in zip(range(col_count), df.columns) if col_name != 'id'])
-    new_df = df.select('id', *[func_rand('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
-    # new_df = df.select('id', *[F.length('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
-    # new_df = df.select('id', *[test_scala_udf('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
+    if use_python_udf:
+        new_df = df.select('id', *[func_rand('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
+    else:
+        new_df = df.select('id', *[test_scala_udf('id').alias(f"{new_col_prefix}_{i}") for i in range(col_count)])
 
     return cache_and_materialize(new_df)
 
@@ -176,13 +182,23 @@ def scenario_simple():
     base_df = cache_and_materialize(base_df)
 
     with JobGroup("make fp", f"Processing new columns"):
-        df_layer_0 = make_new_columns(base_df, f"new_columns_0", FP_COLS_COUNT)
-        df_layer_1 = make_new_columns(df_layer_0, f"new_columns_0", FP_COLS_COUNT)
-        df_layer_2 = make_new_columns(df_layer_1, f"new_columns_0", FP_COLS_COUNT)
+        df_layer_0 = make_new_columns(base_df, f"new_columns_0", FP_COLS_COUNT, use_python_udf=True)
+        df_layer_1 = make_new_columns(base_df, f"new_columns_0", FP_COLS_COUNT, use_python_udf=False)
+        # df_layer_2 = make_new_columns(df_layer_1, f"new_columns_0", FP_COLS_COUNT)
 
-    joined_df = join_multiple([base_df, df_layer_0, df_layer_1, df_layer_2])
+    # works as plan truncating and makes joins bucketed
+    df_layer_0 = bucketize_table("df_layer_0", df_layer_0)
 
-    cache_and_materialize(joined_df)
+    # joined_df = join_multiple([base_df, df_layer_0, df_layer_1, df_layer_2])
+    joined_df = join_multiple([base_df, df_layer_0])
+
+    with JobGroup("first join", "First join with use_python_udf=True"):
+        joined_df = cache_and_materialize(joined_df)
+
+    joined_df_2 = join_multiple([joined_df, df_layer_1])
+
+    with JobGroup("second join", "Second join with use_python_udf=False"):
+        cache_and_materialize(joined_df_2)
 
 
 def scenario_regular_mlpipe():
