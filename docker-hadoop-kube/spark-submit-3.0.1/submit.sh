@@ -17,6 +17,7 @@ spark-submit \
 --conf 'spark.kryoserializer.buffer.max=512m' \
 --conf 'spark.driver.cores='${DRIVER_CORES} \
 --conf 'spark.driver.memory='${DRIVER_MEMORY} \
+--conf 'spark.driver.maxResultSize='${DRIVER_MAX_RESULT_SIZE} \
 --conf 'spark.executor.instances='${EXECUTOR_INSTANCES} \
 --conf 'spark.executor.cores='${EXECUTOR_CORES} \
 --conf 'spark.executor.memory='${EXECUTOR_MEMORY} \
