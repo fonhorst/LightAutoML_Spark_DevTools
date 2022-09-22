@@ -85,3 +85,32 @@ spec:
   resources:
     requests:
       storage: '100Gi'
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-spark-submit-files
+spec:
+  capacity:
+    storage: '100Gi'
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-hdd
+  hostPath:
+    path: /mnt/ess_storage/DN_1/storage/SLAMA/spark_submit_files
+    type: Directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: spark-submit-files
+spec:
+  volumeName: pv-spark-submit-files
+  storageClassName: local-hdd
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: '100Gi'
