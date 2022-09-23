@@ -59,11 +59,11 @@ spark-submit \
 --conf 'spark.yarn.historyServer.allowTracking=true' \
 --conf 'spark.sql.autoBroadcastJoinThreshold=-1' \
 --conf 'spark.sql.execution.arrow.pyspark.enabled=true' \
---conf 'spark.sql.shuffle.partitions=2' \
+--conf 'spark.sql.shuffle.partitions=100' \
 --conf 'spark.scheduler.mode=FAIR' \
 --jars 'spark-lightautoml_2.12-0.1.jar' \
-tmp_parallel_execution.py
-#tmp_complex_merge_join.py
+tmp_complex_merge_join.py
+#tmp_parallel_execution.py
 
 
 #--py-files 'SparkLightAutoML-0.3.0-py3-none-any.whl,examples_utils.py' \

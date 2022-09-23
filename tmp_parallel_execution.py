@@ -29,6 +29,7 @@ spark = (
     .config('spark.sql.autoBroadcastJoinThreshold', '-1')
     .config("spark.sql.execution.arrow.pyspark.enabled", "true")
     .config("spark.sql.shuffle.partitions", f"{BUCKET_NUMS}")
+    .config("spark.locality.wait", "0s")
     .config("spark.scheduler.mode", "FAIR")
     .getOrCreate()
 )
@@ -83,9 +84,9 @@ def target_func(df: SparkDataFrame, col_name: str, i: int, sdfs: List) -> SparkD
     # df = df.localCheckpoint(eager=True)
     # df = spark.createDataFrame(df.rdd, schema=df.schema)
 
-    sdf = df.select('*', func_rand(col_name).alias('col_0_rand')).cache()
+    # sdf = df.select('*', func_rand(col_name).alias('col_0_rand')).cache()
     # sdf = df.select('*', F.rand(42).alias('col_0_rand')).cache()
-    # sdf = df.select('*', delay_scala_udf(col_name).alias(f'col_{i}_rand')).cache()
+    sdf = df.select('*', delay_scala_udf(col_name).alias(f'col_{i}_rand')).cache()
     sdf.write.mode('overwrite').format('noop').save()
 
     sdfs[i] = sdf
