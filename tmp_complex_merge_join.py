@@ -23,14 +23,20 @@ CV_FOLDS = 5
 
 logger = logging.getLogger()
 
+# spark = (
+#     SparkSession
+#     .builder
+#     .master('local[2]')
+#     .config("spark.jars", "spark-lightautoml_2.12-0.1.jar")
+#     .config('spark.sql.autoBroadcastJoinThreshold', '-1')
+#     .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+#     .config("spark.sql.shuffle.partitions", "100")
+#     .getOrCreate()
+# )
+
 spark = (
     SparkSession
     .builder
-    .master('local[2]')
-    .config("spark.jars", "spark-lightautoml_2.12-0.1.jar")
-    .config('spark.sql.autoBroadcastJoinThreshold', '-1')
-    .config("spark.sql.execution.arrow.pyspark.enabled", "true")
-    .config("spark.sql.shuffle.partitions", "100")
     .getOrCreate()
 )
 
@@ -282,7 +288,5 @@ def main():
 if __name__ == "__main__":
     with log_exec_time("main"):
         main()
-
-    time.sleep(600)
 
     spark.stop()
