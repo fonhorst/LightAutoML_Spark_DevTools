@@ -193,7 +193,7 @@ def scenario_simple():
         # df_layer_2 = make_new_columns(df_layer_1, f"new_columns_0", FP_COLS_COUNT)
 
     # works as plan truncating and makes joins bucketed
-    df_layer_0 = bucketize_table("df_layer_0", df_layer_0)
+    # df_layer_0 = bucketize_table("df_layer_0", df_layer_0)
 
     # joined_df = join_multiple([base_df, df_layer_0, df_layer_1, df_layer_2])
     joined_df = join_multiple([base_df, df_layer_0])

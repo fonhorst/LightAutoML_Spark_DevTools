@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 from contextlib import contextmanager
 from random import random
@@ -31,7 +32,12 @@ spark = (
     .config("spark.scheduler.mode", "FAIR")
     .getOrCreate()
 )
-
+#
+# spark = (
+#     SparkSession
+#     .builder
+#     .getOrCreate()
+# )
 
 def delay_scala_udf(col):
     sc = SparkContext._active_spark_context
@@ -68,13 +74,15 @@ def cache_and_materialize(df: SparkDataFrame, type: str = "cache") -> SparkDataF
 
 @pandas_udf("float")
 def func_rand(s: Series) -> Series:
-    import time
     time.sleep(60)
     return s.map(lambda x: random())
 
 
 @inheritable_thread_target
 def target_func(df: SparkDataFrame, col_name: str, i: int, sdfs: List) -> SparkDataFrame:
+    # df = df.localCheckpoint(eager=True)
+    # df = spark.createDataFrame(df.rdd, schema=df.schema)
+
     sdf = df.select('*', func_rand(col_name).alias('col_0_rand')).cache()
     # sdf = df.select('*', F.rand(42).alias('col_0_rand')).cache()
     # sdf = df.select('*', delay_scala_udf(col_name).alias(f'col_{i}_rand')).cache()
@@ -124,5 +132,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-    import time
     time.sleep(600)
