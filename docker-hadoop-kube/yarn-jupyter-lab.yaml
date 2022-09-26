@@ -1,5 +1,34 @@
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-slama-jupyterlab-notebooks
+spec:
+  capacity:
+    storage: '100Gi'
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-hdd
+  hostPath:
+    path: /mnt/ess_storage/DN_1/storage/SLAMA/jupyterlab_notebooks
+    type: Directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyterlab-notebooks
+spec:
+  volumeName: pv-slama-jupyterlab-notebooks
+  storageClassName: local-hdd
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: '100Gi'
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: jupyter-server-config
@@ -109,6 +138,10 @@ spec:
           persistentVolumeClaim:
             claimName: jars
             readOnly: true
+        - name: jupyterlab-notebooks
+          persistentVolumeClaim:
+            claimName: jupyterlab-notebooks
+            readOnly: false
         - name: ephemeral
           emptyDir: { }
       containers:
@@ -142,6 +175,8 @@ spec:
             mountPath: /home/jovyan/python-envs
           - name: jars
             mountPath: /home/jovyan/jars
+          - name: jupyterlab-notebooks
+            mountPath: /home/jovyan/notebooks
           - name: jupyter-config
             mountPath: /etc/jupyter/jupyter_server_config.py
             subPath: jupyter_server_config.py
