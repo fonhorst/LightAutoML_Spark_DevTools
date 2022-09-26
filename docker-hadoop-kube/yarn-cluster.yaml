@@ -186,6 +186,12 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: spark-lama-data
+        - name: pythons
+          persistentVolumeClaim:
+            claimName: python-envs
+        - name: jars
+          persistentVolumeClaim:
+            claimName: jars
         - name: nfs
           persistentVolumeClaim:
             claimName: mnt-nfs
@@ -213,6 +219,10 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/spark_data/
+            - name: pythons
+              mountPath: /python_envs/
+            - name: jars
+              mountPath: /jars/
             - name: nfs
               mountPath: /mnt/nfs/
             # hadoop tmp dir
