@@ -143,3 +143,32 @@ spec:
   resources:
     requests:
       storage: '100Gi'
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-slama-jars
+spec:
+  capacity:
+    storage: '100Gi'
+  volumeMode: Filesystem
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-hdd
+  hostPath:
+    path: /mnt/ess_storage/DN_1/storage/SLAMA/jars
+    type: Directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jars
+spec:
+  volumeName: pv-slama-jars
+  storageClassName: local-hdd
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: '100Gi'
