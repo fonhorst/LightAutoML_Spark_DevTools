@@ -44,13 +44,16 @@ spark-submit \
 --conf 'spark.yarn.appMasterEnv.MLFLOW_TRACKING_URI=http://node2.bdcl:8811' \
 --conf 'spark.yarn.appMasterEnv.PYSPARK_PYTHON='${PYSPARK_PYTHON_PATH} \
 --conf "spark.yarn.tags=test-runs" \
+--conf "spark.yarn.maxAppAttempts=1" \
+--conf 'spark.driver.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true -Xss100m' \
+--conf 'spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true -Xss100m' \
 --conf 'spark.kryoserializer.buffer.max=512m' \
 --conf 'spark.driver.cores=1' \
---conf 'spark.driver.memory=2g' \
+--conf 'spark.driver.memory=4g' \
 --conf 'spark.executor.instances=4' \
---conf 'spark.executor.cores=1' \
---conf 'spark.executor.memory=4g' \
---conf 'spark.cores.max=4' \
+--conf 'spark.executor.cores=20' \
+--conf 'spark.executor.memory=80g' \
+--conf 'spark.cores.max=80' \
 --conf 'spark.memory.fraction=0.8' \
 --conf 'spark.scheduler.minRegisteredResourcesRatio=1.0' \
 --conf 'spark.scheduler.maxRegisteredResourcesWaitingTime=180s' \
@@ -59,10 +62,11 @@ spark-submit \
 --conf 'spark.yarn.historyServer.allowTracking=true' \
 --conf 'spark.sql.autoBroadcastJoinThreshold=-1' \
 --conf 'spark.sql.execution.arrow.pyspark.enabled=true' \
---conf 'spark.sql.shuffle.partitions=100' \
+--conf 'spark.sql.shuffle.partitions=80' \
 --conf 'spark.scheduler.mode=FAIR' \
 --jars 'spark-lightautoml_2.12-0.1.jar' \
-tmp_complex_merge_join.py
+tmp_highload_join.py
+#tmp_complex_merge_join.py
 #tmp_parallel_execution.py
 
 
