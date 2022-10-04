@@ -2,27 +2,32 @@
 
 set -ex
 
-declare -A extra_class_path=( ["3.0.1"]="/usr/local/lib/spark_3.0.1_synapseml_0.9.5_jars/*" ["3.1.1"]="/usr/local/lib/spark_3.1.1_synapseml_0.9.5_jars/*" ["3.2.0"]="/usr/local/lib/synapseml_0.9.5_jars/*")
+# declare -A extra_class_path=( ["3.0.1"]="/usr/local/lib/spark_3.0.1_synapseml_0.9.5_jars/*" ["3.1.1"]="/usr/local/lib/spark_3.1.1_synapseml_0.9.5_jars/*" ["3.2.0"]="/usr/local/lib/synapseml_0.9.5_jars/*")
+declare -A extra_class_path=( ["3.0.1"]="/jars/spark_3.0.1_synapseml_0.9.5_jars/*" ["3.1.1"]="/jars/spark_3.1.1_synapseml_0.9.5_jars/*" ["3.2.0"]="/jars/synapseml_0.9.5_jars/*")
 # declare -A extra_class_path=( ["3.0.1"]="/usr/local/lib/spark_3.0.1_synapseml_0.9.5_jars/*" ["3.1.1"]="/usr/local/lib/spark_3.1.1_synapseml_0.9.4_jars/*" ["3.2.0"]="/usr/local/lib/synapseml_0.9.5_jars/*")
-declare -A pyspark_python=( ["3.0.1"]="/usr/local/bin/python3.8" ["3.1.1"]="/.venv/bin/python3.9" ["3.2.0"]="/usr/local/bin/python3.9")
+# declare -A pyspark_python=( ["3.0.1"]="/usr/local/bin/python3.8" ["3.1.1"]="/.venv/bin/python3.9" ["3.2.0"]="/usr/local/bin/python3.9")
+declare -A pyspark_python=( ["3.0.1"]="/python_envs/Python-3.8.13/bin/python3.8" ["3.1.1"]="/python_envs/.venv3.9_3.1.1_0.9.5/bin/python" ["3.2.0"]="/python_envs/Python-3.9.12/bin/python3.9")
 # declare -A pyspark_python=( ["3.0.1"]="/usr/local/bin/python3.8" ["3.1.1"]="/.venv_3.1.1_0.9.4/bin/python3.9" ["3.2.0"]="/usr/local/bin/python3.9")
 declare -A use_single_dataset_mode=( ["3.0.1"]="True" ["3.1.1"]="True" ["3.2.0"]="True")
 declare -A jars=( ["3.0.1"]="/submit_files/spark-lightautoml_2.12-0.1.jar" ["3.1.1"]="/submit_files/spark-lightautoml_2.12-0.1.jar" ["3.2.0"]="/submit_files/spark-lightautoml_2.12-0.1-spark-3.2.0.jar")
-# SCRIPT="spark-ml-pipe-lgb-light.py"
-SCRIPT="/submit_files/tabular-preset-automl.py"
+SCRIPT="/submit_files/spark-ml-pipe-lgb-light.py"
+# SCRIPT="/submit_files/tabular-preset-automl.py"
 CV="2"
 DRIVER_CORES="2"
 DRIVER_MEMORY="20g"
 DRIVER_MAX_RESULT_SIZE="5g"
 EXECUTOR_CORES="6"
-EXECUTOR_MEMORY="27g"
+EXECUTOR_MEMORY="40g"
+# 40g
 
+
+# lama_test_dataset used_cars_dataset_1x
 # 3.0.1 3.1.1 3.2.0
-for spark_version in 3.1.1 3.2.0
+for spark_version in 3.2.0
 do
     for executor_instances in 4
     do
-        for dataset in used_cars_dataset_1x
+        for dataset in lama_test_dataset
         do
             CORES_MAX=$(($EXECUTOR_CORES * $executor_instances))
             kubectl -n spark-lama-exps exec spark-submit-$spark_version -- \
@@ -32,4 +37,4 @@ do
     done
 done
 
-# nohup ./bin/run_experiments.sh > bin/experiment_logs/run_experiments_spark_submit_24.log  2>&1 &
+# nohup ./bin/run_experiments.sh > bin/experiment_logs/run_experiments_spark_submit_$(date +%Y-%m-%d-%H%M%S).log  2>&1 &
