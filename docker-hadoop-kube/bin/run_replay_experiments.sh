@@ -7,23 +7,27 @@ DRIVER_CORES="2"
 DRIVER_MEMORY="20g"
 DRIVER_MAX_RESULT_SIZE="5g"
 EXECUTOR_CORES="6"
-EXECUTOR_MEMORY="20g"
+EXECUTOR_MEMORY="40g"
 # N_SAMPLES="5322368"
 SCRIPT="/submit_files/replay/run_experiment.py"
+SEED="1234"
 
 
 # MovieLens__1m MovieLens__10m__1552238 MovieLens__10m__5322368 MovieLens__10m MovieLens__20m__18813873 MovieLens__20m
-for dataset in MovieLens__20m__18813873 MovieLens__20m
+# MovieLens__100k MovieLens__1m MovieLens__10m MovieLens__20m
+# MillionSongDataset
+for dataset in MillionSongDataset__10000000 MillionSongDataset__6000000 MillionSongDataset__8000000
 do
     # 1 2 4 8
-    for executor_instances in 1 2 4 8
+    for executor_instances in 4
     do
         # ALS Explicit_ALS SLIM ItemKNN LightFM Word2VecRec PopRec RandomRec_uniform RandomRec_popular_based AssociationRulesItemRec
-        for model in Explicit_ALS
+        for model in ALS
         do
             CORES_MAX=$(($EXECUTOR_CORES * $executor_instances))
             kubectl -n spark-lama-exps exec spark-submit-3.1.1 -- \
             bash -c "export DATASET=$dataset \
+            SEED=$SEED \
             MODEL=$model \
             LOG_TO_MLFLOW=True \
             CORES_MAX=$CORES_MAX \
