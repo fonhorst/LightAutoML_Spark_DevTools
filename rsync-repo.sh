@@ -60,6 +60,7 @@ function sync() {
         --exclude '*__pycache__*' \
         --exclude '*target*' \
 	--exclude '*ipynb_checkpints' \
+        --exclude 'venv' \
         --exclude 'download-cache' \
         --exclude '*.iml' \
         --exclude '.idea' \
@@ -71,14 +72,11 @@ function sync() {
         --exclude 'work' \
         --exclude '*.hdf5' \
         --exclude '*.jpg' \
-        --exclude '*.zip' \
         --exclude '*.png' \
         --exclude 'examples/tmp' \
-        --exclude '*.tar.gz' \
         --exclude '*.rpm' \
         --exclude '*/.vagrant' \
         --exclude '*.vdi' \
-        --exclude '*_config_dir' \
         "$from" $to
 }
 

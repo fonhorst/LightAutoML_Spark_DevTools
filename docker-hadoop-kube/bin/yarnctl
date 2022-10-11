@@ -18,7 +18,7 @@ then
 fi
 
 ## declare an array variable
-declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "spark-submit")
+declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "spark-submit" "jupyter-lab")
 
 function obtain_requirements() {
   echo "Obtaining requirements files"
@@ -72,6 +72,21 @@ function push_images() {
 function install_images() {
     build_images
     push_images
+}
+
+function build_jupyter_lab_image() {
+    image="${REPO}/yarn-jupyter-lab:${IMAGE_TAG}"
+    docker build -t "${image}" jupyter-lab
+}
+
+function push_jupyter_lab_image() {
+    image="${REPO}/yarn-jupyter-lab:${IMAGE_TAG}"
+    docker push "${image}"
+}
+
+function install_jupyter_lab_image() {
+    build_jupyter_lab_image
+    push_jupyter_lab_image
 }
 
 function provision_volumes() {
@@ -171,6 +186,18 @@ function main () {
 
     "install-images")
         install_images
+        ;;
+
+    "build-jupyter-lab-image")
+        build_jupyter_lab_image
+        ;;
+
+    "push-jupyter-lab-image")
+        push_jupyter_lab_image
+        ;;
+
+    "install-jupyter-lab-image")
+        install_jupyter_lab_image
         ;;
 
     "provision-volumes")

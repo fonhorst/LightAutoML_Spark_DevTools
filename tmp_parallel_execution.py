@@ -134,3 +134,12 @@ if __name__ == '__main__':
     main()
 
     time.sleep(600)
+
+    # to measure number of allocated executors
+    sc = spark._jsc.sc()
+    n_workers = len([executor.host() for executor in sc.statusTracker().getExecutorInfos()]) - 1
+
+    n_desired_workers = spark.conf.get("spark.executor.instances")
+
+    if n_workers != n_desired_workers:
+        raise NotEnoughExecutorsException(...)

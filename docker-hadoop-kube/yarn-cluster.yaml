@@ -175,6 +175,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/spark_data/
+              readOnly: true
             - name: nfs
               mountPath: /mnt/nfs/
             # hadoop tmp dir

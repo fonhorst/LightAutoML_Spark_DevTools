@@ -125,7 +125,7 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: spark-lama-data
-            readOnly: true
+            readOnly: false
         - name: nfs
           persistentVolumeClaim:
             claimName: mnt-nfs
@@ -146,15 +146,15 @@ spec:
           emptyDir: { }
       containers:
       - name: jupyter
-        image: jupyter/all-spark-notebook:latest
-        imagePullPolicy: IfNotPresent
+        image: node2.bdcl:5000/yarn-jupyter-lab:slama-yarn
+        imagePullPolicy: Always
         resources:
           requests:
-            memory: "36Gi"
-            cpu: "6"
+            memory: "70Gi"
+            cpu: "8"
           limits:
-            memory: "36Gi"
-            cpu: "6"
+            memory: "70Gi"
+            cpu: "8"
         envFrom:
           - configMapRef:
               name: hadoop-env
