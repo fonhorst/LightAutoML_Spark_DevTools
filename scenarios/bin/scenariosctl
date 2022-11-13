@@ -20,7 +20,7 @@ function build_images() {
   cp ${slama_path}/dist/SparkLightAutoML-0.3.0-py3-none-any.whl ${slama_build_path}
   cp ${slama_path}/jars/spark-lightautoml_2.12-0.1.jar ${slama_build_path}
   cp ${slama_path}/requirements.txt ${slama_build_path}
-  cp -r ${slama_path}/examples/spark ${slama_build_path}/examples-spark/
+  cp -r examples-spark ${slama_build_path}/examples-spark/
 
   docker build -t "${DOCKER_REPO}/slama:latest" -f ./docker/slama.dockerfile ./docker
 
