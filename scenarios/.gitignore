@@ -1,3 +1,5 @@
 *.whl
 *.tgz
 *.tar.gz
+spark-warehouse
+examples-spark/spark-warehouse

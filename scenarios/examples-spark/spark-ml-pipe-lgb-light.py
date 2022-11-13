@@ -81,7 +81,7 @@ if __name__ == "__main__":
             F.col(spark_ml_algo.prediction_feature).alias('prediction')
         )
         test_score = score(test_pred_df)
-        logger.info(f"Test score (#3 way): {test_score}")
+        logger.info(f"Test score (#2 way): {test_score}")
 
     logger.info("Finished")
 
