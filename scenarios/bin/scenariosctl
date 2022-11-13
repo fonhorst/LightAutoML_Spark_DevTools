@@ -1,0 +1,84 @@
+#!/bin/bash
+
+set -ex
+
+DOCKER_REPO=node2.bdcl:5000
+
+function build_images() {
+  slama_path="../../LightAutoML"
+  slama_build_path="./docker/slama_build_tmp"
+
+  # regenerate actual requirements .txt
+  cur_path=$(pwd)
+  cd "$slama_path"
+  poetry export --without-hashes --format=requirements.txt > requirements.txt
+  cd "$cur_path"
+
+  rm -rf "$slama_build_path"
+  mkdir -p "$slama_build_path"
+
+  cp ${slama_path}/dist/SparkLightAutoML-0.3.0-py3-none-any.whl ${slama_build_path}
+  cp ${slama_path}/jars/spark-lightautoml_2.12-0.1.jar ${slama_build_path}
+  cp ${slama_path}/requirements.txt ${slama_build_path}
+  cp -r ${slama_path}/examples/spark ${slama_build_path}/examples-spark/
+
+  docker build -t "${DOCKER_REPO}/slama:latest" -f ./docker/slama.dockerfile ./docker
+
+  rm -rf ${slama_build_path}
+}
+
+function push_images() {
+    docker push "${DOCKER_REPO}/slama:latest"
+}
+
+function install_images() {
+    build_images
+    push_images
+}
+
+function help() {
+  echo "
+  List of commands.
+    help - prints this message
+  "
+}
+
+function main () {
+    cmd="$1"
+
+    if [ -z "${cmd}" ]
+    then
+      echo "No command is provided."
+      help
+      exit 1
+    fi
+
+    shift 1
+
+    echo "Executing command: ${cmd}"
+
+    case "${cmd}" in
+      "build-images")
+          build_images
+          ;;
+
+      "push-images")
+          push_images
+          ;;
+
+      "install-images")
+          install_images
+          ;;
+
+      "help")
+          help
+          ;;
+
+      *)
+          echo "Unknown command: ${cmd}"
+          ;;
+
+    esac
+}
+
+main "${@}"
