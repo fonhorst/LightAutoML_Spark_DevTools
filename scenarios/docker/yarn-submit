@@ -7,18 +7,19 @@ if [[ -z "$1" ]]; then
   exit 1
 fi
 
-if [[ -z "$2" ]]; then
-  echo "EXPERIMENT arg is not defined but required"
+if [[ -z "$EXPERIMENT" ]]; then
+  echo "EXPERIMENT env var is not defined but required"
   exit 1
 fi
 
 SCRIPT="$1"
-EXPERIMENT="$2"
 
 PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/Python-3.9.12/bin/python3.9"}
 LOG_TO_MLFLOW=${LOG_TO_MLFLOW:-"1"}
+LOG_FILES_TO_MLFLOW=${LOG_FILES_TO_MLFLOW:-"0"}
 DATASET=${DATASET:-"lama_test_dataset"}
 SEED=${SEED:-"42"}
+CV=${CV:-"5"}
 PERSISTENCE_MANAGER=${PERSISTENCE_MANAGER:-"CompositePlainCachePersistenceManager"}
 DRIVER_CORES=${DRIVER_CORES:-"6"}
 DRIVER_MEMORY=${DRIVER_MEMORY:-"16g"}
@@ -26,13 +27,14 @@ DRIVER_MAX_RESULT_SIZE=${DRIVER_MAX_RESULT_SIZE:-"5g"}
 EXECUTOR_INSTANCES=${EXECUTOR_INSTANCES:-"4"}
 EXECUTOR_CORES=${EXECUTOR_CORES:-"6"}
 EXECUTOR_MEMORY=${EXECUTOR_MEMORY:-"40g"}
+PART_NUM_KOEF=${PART_NUM_KOEF:-1}
 
 # calculable variables
 # shellcheck disable=SC2004
 CORES_MAX=$(($EXECUTOR_CORES * $EXECUTOR_INSTANCES))
 # shellcheck disable=SC2004
-PARTITION_NUM=$(($CORES_MAX * 3))
-BUCKET_NUMS=$PARTITION_NUM
+PARTITION_NUM=$(($CORES_MAX * $PART_NUM_KOEF))
+BUCKET_NUMS=${BUCKET_NUMS:-$PARTITION_NUM}
 
 
 spark-submit \
@@ -46,6 +48,7 @@ spark-submit \
 --conf "spark.yarn.appMasterEnv.EXPERIMENT=${EXPERIMENT}" \
 --conf "spark.yarn.appMasterEnv.DATASET=${DATASET}" \
 --conf "spark.yarn.appMasterEnv.SEED=${SEED}" \
+--conf "spark.yarn.appMasterEnv.SEED=${CV}" \
 --conf "spark.yarn.appMasterEnv.PERSISTENCE_MANAGER=${PERSISTENCE_MANAGER}" \
 --conf "spark.yarn.appMasterEnv.BUCKET_NUMS=${BUCKET_NUMS}" \
 --conf "spark.yarn.tags=slama" \
