@@ -11,11 +11,11 @@ from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatu
 from sparklightautoml.pipelines.ml.base import SparkMLPipeline
 from sparklightautoml.reader.base import SparkToSparkReader
 from sparklightautoml.tasks.base import SparkTask as SparkTask
-from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_time, log_exec_timer
+from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
 from examples_utils import get_persistence_manager, check_executors_count, \
-    log_session_params_to_mlflow
+    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer
 from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
 
 uid = uuid.uuid4()
@@ -38,7 +38,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
     persistence_manager = get_persistence_manager()
 
-    with log_exec_time():
+    with log_exec_timer("full_time"):
         train_df, test_df = prepare_test_and_train(spark, path, seed)
 
         task = SparkTask(task_type)
@@ -64,9 +64,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
             oof_score = score(oof_preds_ds[:, spark_ml_algo.prediction_feature])
 
             logger.info(f"OOF score: {oof_score}")
-
-        mlflow.log_metric(fit_time.name, fit_time.duration)
-        mlflow.log_metric("oof_score", oof_score)
+            mlflow.log_metric("oof_score", oof_score)
 
         # 1. first way (LAMA API)
         with log_exec_timer("predict") as predict_time:
@@ -75,9 +73,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
             test_score = score(test_preds_ds[:, spark_ml_algo.prediction_feature])
 
             logger.info(f"Test score (#1 way): {test_score}")
-
-        mlflow.log_metric(predict_time.name, predict_time.duration)
-        mlflow.log_metric("test_score", test_score)
+            mlflow.log_metric("test_score", test_score)
 
         model_path = f"/tmp/models/spark-ml-pipe-lgb-light-{uid}"
         # 2. second way (Spark ML API, save-load-predict)
@@ -85,13 +81,10 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
             transformer = PipelineModel(stages=[sreader.transformer(add_array_attrs=True), ml_pipe.transformer()])
             transformer.write().overwrite().save(model_path)
 
-        mlflow.log_metric(save_time.name, save_time.duration)
-        mlflow.log_param("model_path", model_path)
+            mlflow.log_param("model_path", model_path)
 
         with log_exec_timer("model_loading") as load_time:
             pipeline_model = PipelineModel.load(model_path)
-
-        mlflow.log_metric(load_time.name, load_time.duration)
 
         test_pred_df = pipeline_model.transform(test_df)
         test_pred_df = test_pred_df.select(

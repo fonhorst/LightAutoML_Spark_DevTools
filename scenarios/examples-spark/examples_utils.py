@@ -255,3 +255,13 @@ class MLflowWrapperPersistenceManager(PersistenceManager):
 
     def is_persisted(self, pdf: PersistableDataFrame) -> bool:
         return self._instance.is_persisted(pdf)
+
+
+class mlflow_log_exec_timer(log_exec_timer):
+    def __init__(self, name: Optional[str] = None):
+        super(mlflow_log_exec_timer, self).__init__(name)
+        
+    def __exit__(self, typ, value, traceback):
+        super().__exit__(typ, value, traceback)
+        if self.name:
+            mlflow.log_metric(self.name, self.duration)
