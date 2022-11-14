@@ -16,7 +16,7 @@ SCRIPT="$1"
 EXPERIMENT="$2"
 
 PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/Python-3.9.12/bin/python3.9"}
-LOG_TO_MLFLOW=${LOG_TO_MLFLOW:-"true"}
+LOG_TO_MLFLOW=${LOG_TO_MLFLOW:-"1"}
 DATASET=${DATASET:-"lama_test_dataset"}
 SEED=${SEED:-"42"}
 PERSISTENCE_MANAGER=${PERSISTENCE_MANAGER:-"CompositePlainCachePersistenceManager"}
