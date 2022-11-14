@@ -295,3 +295,50 @@ spec:
       name: https-webui
   selector:
     app: yarn-nodemanager
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-configs
+data:
+  core-site.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+      <property><name>fs.defaultFS</name><value>hdfs://node21.bdcl:9000</value></property>
+      <property><name>hadoop.http.staticuser.user</name><value>root</value></property>
+      <property><name>io.compression.codecs</name><value>org.apache.hadoop.io.compress.SnappyCodec</value></property>
+      <property><name>hadoop.proxyuser.hue.groups</name><value>*</value></property>
+      <property><name>hadoop.proxyuser.hue.hosts</name><value>*</value></property>
+    </configuration>
+
+  yarn-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+        <!-- Site specific YARN configuration properties -->
+        <property><name>yarn.log-aggregation-enable</name><value>true</value></property>
+        <property><name>yarn.log.server.url</name><value>http://yarn-history-server:8188/applicationhistory/logs/</value></property>
+        <property><name>yarn.resourcemanager.recovery.enabled</name><value>true</value></property>
+        <property><name>yarn.resourcemanager.store.class</name><value>org.apache.hadoop.yarn.server.resourcemanager.recovery.FileSystemRMStateStore</value></property>
+        <property><name>yarn.resourcemanager.scheduler.class</name><value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value></property>
+        <property><name>yarn.scheduler.capacity.root.default.maximum-allocation-mb</name><value>16384</value></property>
+        <property><name>yarn.scheduler.capacity.root.default.maximum-allocation-vcores</name><value>8</value></property>
+        <property><name>yarn.scheduler.maximum-allocation-mb</name><value>32768</value></property>
+        <property><name>yarn.scheduler.maximum-allocation-vcores</name><value>8</value></property>
+        <property><name>yarn.resourcemanager.fs.state-store.uri</name><value>/rmstate</value></property>
+        <property><name>yarn.resourcemanager.bind-host</name><value>0.0.0.0</value></property>
+        <property><name>yarn.resourcemanager.hostname</name><value>yarn-resourcemanager</value></property>
+        <property><name>yarn.resourcemanager.address</name><value>yarn-resourcemanager:8032</value></property>
+        <property><name>yarn.resourcemanager.scheduler.address</name><value>yarn-resourcemanager:8030</value></property>
+        <property><name>yarn.resourcemanager.resource-tracker.address</name><value>yarn-resourcemanager:8031</value></property>
+        <property><name>yarn.timeline-service.enabled</name><value>true</value></property>
+        <property><name>yarn.timeline-service.generic-application-history.enabled</name><value>true</value></property>
+        <property><name>yarn.timeline-service.bind-host</name><value>0.0.0.0</value></property>
+        <property><name>yarn.timeline-service.hostname</name><value>yarn-history-server</value></property>
+        <property><name>mapreduce.map.output.compress</name><value>true</value></property>
+        <property><name>mapred.map.output.compress.codec</name><value>org.apache.hadoop.io.compress.SnappyCodec</value></property>
+        <property><name>yarn.nodemanager.resource.memory-mb</name><value>32768</value></property>
+        <property><name>yarn.nodemanager.resource.cpu-vcores</name><value>8</value></property>
+        <property><name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name><value>98.5</value></property>
+        <property><name>yarn.nodemanager.remote-app-log-dir</name><value>/app-logs</value></property>
+    </configuration>
