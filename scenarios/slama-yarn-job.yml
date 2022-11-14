@@ -26,7 +26,7 @@ spec:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
-        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
+        args: ["/src/examples-spark/tabular-preset-automl.py"]
 #        envFrom:
 #          - configMapRef:
 #              name: hadoop-env

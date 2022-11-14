@@ -10,7 +10,7 @@ from pyspark.sql import SparkSession
 
 from examples_utils import get_persistence_manager, BUCKET_NUMS
 from examples_utils import get_dataset_attrs, prepare_test_and_train, get_spark_session, \
-    mlflow_log_exec_timer as log_exec_timer, mlflow_deco
+    mlflow_log_exec_timer as log_exec_timer, mlflow_deco, log_session_params_to_mlflow, check_executors_count
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.tasks.base import SparkTask
@@ -28,7 +28,13 @@ logger = logging.getLogger(__name__)
 
 @mlflow_deco
 def main(cv: int, seed: int, dataset_name: str):
-    spark = SparkSession.getActiveSession()
+    spark = get_spark_session()
+
+    assert spark is not None
+
+    log_session_params_to_mlflow()
+    check_executors_count()
+
     # Algos and layers to be used during automl:
     # For example:
     # 1. use_algos = [["lgb"]]
@@ -147,14 +153,12 @@ def main(cv: int, seed: int, dataset_name: str):
     train_data.unpersist()
     test_data.unpersist()
 
+    check_executors_count()
+
+    spark.stop()
+
     return result
 
 
 if __name__ == "__main__":
-    # if one uses bucketing based persistence manager,
-    # the argument below number should be equal to what is set to 'bucket_nums' of the manager
-    spark_sess = get_spark_session(BUCKET_NUMS)
-
     main()
-
-    spark_sess.stop()
