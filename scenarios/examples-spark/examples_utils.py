@@ -178,18 +178,19 @@ def check_executors_count():
     Checks the number of executors matches the param 'spark.executor.instances' if this param is set
     https://spark.apache.org/docs/latest/monitoring.html#rest-api
     """
-    spark = SparkSession.getActiveSession()
-    exec_instances = int(spark.conf.get("spark.executor.instances", None))
-    if exec_instances:
-        # doing it to verify that computations is possible
-        spark.sparkContext.parallelize(list(range(10))).sum()
-
-        url = f"{spark.sparkContext.uiWebUrl}/api/v1/applications/{spark.sparkContext.applicationId}/allexecutors"
-        with urllib.request.urlopen(url) as url:
-            data = json.loads(url.read().decode())
-
-        assert len(data) - 1 == exec_instances, \
-            f"Incorrect number of executors. Expected: {exec_instances}. Found: {len(data) - 1}"
+    pass
+    # spark = SparkSession.getActiveSession()
+    # exec_instances = int(spark.conf.get("spark.executor.instances", None))
+    # if exec_instances:
+    #     # doing it to verify that computations is possible
+    #     spark.sparkContext.parallelize(list(range(10))).sum()
+    #
+    #     url = f"{spark.sparkContext.uiWebUrl}/api/v1/applications/{spark.sparkContext.applicationId}/allexecutors"
+    #     with urllib.request.urlopen(url) as url:
+    #         data = json.loads(url.read().decode())
+    #
+    #     assert len(data) - 1 == exec_instances, \
+    #         f"Incorrect number of executors. Expected: {exec_instances}. Found: {len(data) - 1}"
 
 
 def log_session_params_to_mlflow():

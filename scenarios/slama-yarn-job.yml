@@ -17,19 +17,19 @@ spec:
         - name: hadoop-configs
           configMap:
             name: hadoop-configs
-            items:
-              - key: core-site.xml
-                path: core-site.xml
-              - key: yarn-site.xml
-                path: yanr-site.xml
+#            items:
+#              - key: core-site.xml
+#                path: core-site.xml
+#              - key: yarn-site.xml
+#                path: yarn-site.xml
       containers:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
-        args: ["/examples-spark/spark-ml-pipe-lgb-light.py"]
-        envFrom:
-          - configMapRef:
-              name: hadoop-env
+        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
+#        envFrom:
+#          - configMapRef:
+#              name: hadoop-env
         env:
           - name: HADOOP_CONF_DIR
             value: /etc/hadoop

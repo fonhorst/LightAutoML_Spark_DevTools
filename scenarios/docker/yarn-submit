@@ -85,8 +85,7 @@ spark-submit \
 --conf "spark.excludeOnFailure.stage.maxFailedExecutorsPerNode=1" \
 --conf "spark.excludeOnFailure.application.maxFailedTasksPerExecutor=1" \
 --conf "spark.excludeOnFailure.application.maxFailedExecutorsPerNode=1" \
---conf "spark.python.worker.reuse=true" \
---py-files "/SparkLightAutoML-0.3.0-py3-none-any.whl" \
+--py-files "/src/SparkLightAutoML-0.3.0-py3-none-any.whl,/src/examples-spark/*" \
 --num-executors "${EXECUTOR_INSTANCES}" \
---jars "/spark-lightautoml_2.12-0.1.jar" \
+--jars "/src/spark-lightautoml_2.12-0.1.jar" \
 "${SCRIPT}"

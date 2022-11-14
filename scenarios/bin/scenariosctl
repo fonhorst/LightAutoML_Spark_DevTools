@@ -36,6 +36,15 @@ function install_images() {
     push_images
 }
 
+function restart_scenario() {
+  kubectl -n spark-lama-exps delete -f slama-yarn-job.yml --ignore-not-found
+  kubectl -n spark-lama-exps apply -f slama-yarn-job.yml
+}
+
+function stop_scenario() {
+    kubectl -n spark-lama-exps delete -f slama-yarn-job.yml --ignore-not-found
+}
+
 function help() {
   echo "
   List of commands.
@@ -68,6 +77,14 @@ function main () {
 
       "install-images")
           install_images
+          ;;
+
+      "restart-scenario")
+          restart_scenario
+          ;;
+
+      "stop-scenario")
+          stop_scenario
           ;;
 
       "help")
