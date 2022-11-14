@@ -14,8 +14,14 @@ spec:
         "sidecar.istio.io/inject": "false"
     spec:
       volumes:
-        - name: varlog
-          emptyDir: { }
+        - name: hadoop-configs
+          configMap:
+            name: hadoop-configs
+            items:
+              - key: core-site.xml
+                path: core-site.xml
+              - key: yarn-site.xml
+                path: yanr-site.xml
       containers:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
@@ -25,6 +31,8 @@ spec:
           - configMapRef:
               name: hadoop-env
         env:
+          - name: HADOOP_CONF_DIR
+            value: /etc/hadoop
           - name: EXPERIMENT
             value: "84"
           - name: LOG_TO_MLFLOW
@@ -34,7 +42,7 @@ spec:
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
         volumeMounts:
-          - name: varlog
-            mountPath: /var/log/
+          - name: hadoop-configs
+            mountPath: /etc/hadoop
       restartPolicy: Never
   backoffLimit: 0

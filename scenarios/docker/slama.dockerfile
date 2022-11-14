@@ -18,6 +18,8 @@ RUN ln -s /usr/local/lib/python3.9/site-packages/pyspark/bin/spark-submit /usr/b
 COPY yarn-submit .
 RUN chmod 755 yarn-submit
 
+COPY tabular_config.yml .
+
 COPY $SLAMA_BUILD_TMP/requirements.txt .
 COPY $SLAMA_BUILD_TMP/SparkLightAutoML-0.3.0-py3-none-any.whl .
 COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-0.1.jar .
