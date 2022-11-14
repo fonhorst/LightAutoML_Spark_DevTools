@@ -1,12 +1,12 @@
-import os
 import inspect
-from typing import Tuple, Optional
+import os
+from typing import Tuple, Optional, Union, List
 
+import mlflow
 from pyspark.sql import SparkSession
-
-from sparklightautoml.utils import SparkDataFrame
 from sparklightautoml.dataset import persistence
-
+from sparklightautoml.dataset.base import PersistenceManager, PersistableDataFrame, SparkDataset, PersistenceLevel
+from sparklightautoml.utils import SparkDataFrame, log_exec_timer
 
 BUCKET_NUMS = 16
 PERSISTENCE_MANAGER_ENV_VAR = "PERSISTENCE_MANAGER"
@@ -155,7 +155,7 @@ def get_persistence_manager(name: Optional[str] = None):
         "bucket_nums": BUCKET_NUMS
     }
 
-    class_name = name or os.environ.get(PERSISTENCE_MANAGER_ENV_VAR, None) or "CompositePlainCachePersistenceManager"
+    class_name = name or os.environ.get(PERSISTENCE_MANAGER_ENV_VAR, None) or "CompositeBucketedPersistenceManager"
     clazz = getattr(persistence, class_name)
     sig = inspect.signature(getattr(clazz, "__init__"))
 
@@ -169,3 +169,51 @@ def get_persistence_manager(name: Optional[str] = None):
                                     f"Values for the following arguments have not been found: {none_val_args}"
 
     return clazz(**ctr_arg_vals)
+
+
+class MLflowWrapperPersistenceManager(PersistenceManager):
+    def __init__(self, instance: PersistenceManager):
+        self._instance = instance
+
+    @property
+    def uid(self) -> str:
+        return self._instance.uid
+
+    @property
+    def children(self) -> List['PersistenceManager']:
+        return self._instance.children
+
+    @property
+    def datasets(self) -> List[SparkDataset]:
+        return self._instance.datasets
+
+    @property
+    def all_datasets(self) -> List[SparkDataset]:
+        return self._instance.all_datasets
+
+    def persist(self, dataset: Union[SparkDataset, PersistableDataFrame],
+                level: PersistenceLevel = PersistenceLevel.REGULAR) -> PersistableDataFrame:
+
+        if level == PersistenceLevel.READER:
+            with log_exec_timer("reader_time") as timer:
+                self._instance.persist(dataset, level)
+
+            mlflow.log_metric(timer.name, timer.duration)
+
+    def unpersist(self, uid: str):
+        self._instance.unpersist(uid)
+
+    def unpersist_all(self):
+        self._instance.unpersist_all()
+
+    def unpersist_children(self):
+        self._instance.unpersist_children()
+
+    def child(self) -> 'PersistenceManager':
+        return self._instance.child()
+
+    def remove_child(self, child: Union['PersistenceManager', str]):
+        self._instance.remove_child(child)
+
+    def is_persisted(self, pdf: PersistableDataFrame) -> bool:
+        return self._instance.is_persisted(pdf)

@@ -6,9 +6,6 @@ import uuid
 import mlflow
 from pyspark.ml import PipelineModel
 from pyspark.sql import functions as F
-
-from examples_utils import get_persistence_manager
-from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
 from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatures
@@ -17,6 +14,9 @@ from sparklightautoml.reader.base import SparkToSparkReader
 from sparklightautoml.tasks.base import SparkTask as SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_time, log_exec_timer
 from sparklightautoml.validation.iterators import SparkFoldsIterator
+
+from examples_utils import get_persistence_manager, MLflowWrapperPersistenceManager
+from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
 
 uid = uuid.uuid4()
 log_filename = f'/tmp/slama-{uid}.log'
@@ -41,7 +41,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
-    persistence_manager = get_persistence_manager()
+    persistence_manager = MLflowWrapperPersistenceManager(get_persistence_manager())
 
     with log_exec_time():
         train_df, test_df = prepare_test_and_train(spark, path, seed)
