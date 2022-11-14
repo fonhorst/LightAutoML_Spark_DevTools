@@ -1,8 +1,5 @@
-import json
-import logging.config
 import logging.config
 import os
-import urllib.request
 import uuid
 
 import mlflow
@@ -17,7 +14,8 @@ from sparklightautoml.tasks.base import SparkTask as SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_time, log_exec_timer
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
-from examples_utils import get_persistence_manager, MLflowWrapperPersistenceManager
+from examples_utils import get_persistence_manager, check_executors_count, \
+    log_session_params_to_mlflow
 from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
 
 uid = uuid.uuid4()
@@ -33,28 +31,12 @@ logger = logging.getLogger(__name__)
 def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     spark = get_spark_session()
 
-    mlflow.log_param("application_id", spark.sparkContext.applicationId)
-    mlflow.log_param("executors", spark.conf.get("spark.executor.instances", None))
-    mlflow.log_param("executor_cores", spark.conf.get("spark.executor.cores", None))
-    mlflow.log_param("executor_memory", spark.conf.get("spark.executor.memory", None))
-    mlflow.log_param("partitions_nums", spark.conf.get("spark.default.parallelism", None))
-    mlflow.log_param("bucket_nums", os.environ.get("BUCKET_NUMS", None))
-    mlflow.log_dict(dict(spark.sparkContext.getConf().getAll()), "spark_conf.json")
-
-    spark.sparkContext.parallelize(list(range(10))).sum()
-
-    exec_instances = int(spark.conf.get("spark.executor.instances", None))
-    if exec_instances:
-        url = f"{spark.sparkContext.uiWebUrl}/api/v1/applications/{spark.sparkContext.applicationId}/executors"
-        with urllib.request.urlopen(url) as url:
-            data = json.loads(url.read().decode())
-
-        assert len(data) - 1 == exec_instances, \
-            f"Incorrect number of executors. Expected: {exec_instances}. Found: {len(data) - 1}"
+    log_session_params_to_mlflow()
+    check_executors_count()
 
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
-    persistence_manager = MLflowWrapperPersistenceManager(get_persistence_manager())
+    persistence_manager = get_persistence_manager()
 
     with log_exec_time():
         train_df, test_df = prepare_test_and_train(spark, path, seed)
@@ -126,7 +108,11 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
     log_files = bool(int(os.environ.get("LOG_FILES_TO_MLFLOW", "0")))
     if log_files:
+        for handler in logger.handlers:
+            handler.flush()
         mlflow.log_artifact(log_filename, "run.log")
+
+    check_executors_count()
 
 
 if __name__ == "__main__":

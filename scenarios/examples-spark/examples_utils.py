@@ -1,5 +1,7 @@
 import inspect
+import json
 import os
+import urllib.request
 from typing import Tuple, Optional, Union, List
 
 import mlflow
@@ -168,7 +170,38 @@ def get_persistence_manager(name: Optional[str] = None):
     assert len(none_val_args) == 0, f"Cannot instantiate class {class_name}. " \
                                     f"Values for the following arguments have not been found: {none_val_args}"
 
-    return clazz(**ctr_arg_vals)
+    return MLflowWrapperPersistenceManager(clazz(**ctr_arg_vals))
+
+
+def check_executors_count():
+    """
+    Checks the number of executors matches the param 'spark.executor.instances' if this param is set
+    https://spark.apache.org/docs/latest/monitoring.html#rest-api
+    """
+    spark = SparkSession.getActiveSession()
+    exec_instances = int(spark.conf.get("spark.executor.instances", None))
+    if exec_instances:
+        # doing it to verify that computations is possible
+        spark.sparkContext.parallelize(list(range(10))).sum()
+
+        url = f"{spark.sparkContext.uiWebUrl}/api/v1/applications/{spark.sparkContext.applicationId}/allexecutors"
+        with urllib.request.urlopen(url) as url:
+            data = json.loads(url.read().decode())
+
+        assert len(data) - 1 == exec_instances, \
+            f"Incorrect number of executors. Expected: {exec_instances}. Found: {len(data) - 1}"
+
+
+def log_session_params_to_mlflow():
+    spark = SparkSession.getActiveSession()
+
+    mlflow.log_param("application_id", spark.sparkContext.applicationId)
+    mlflow.log_param("executors", spark.conf.get("spark.executor.instances", None))
+    mlflow.log_param("executor_cores", spark.conf.get("spark.executor.cores", None))
+    mlflow.log_param("executor_memory", spark.conf.get("spark.executor.memory", None))
+    mlflow.log_param("partitions_nums", spark.conf.get("spark.default.parallelism", None))
+    mlflow.log_param("bucket_nums", os.environ.get("BUCKET_NUMS", None))
+    mlflow.log_dict(dict(spark.sparkContext.getConf().getAll()), "spark_conf.json")
 
 
 class MLflowWrapperPersistenceManager(PersistenceManager):
@@ -196,9 +229,13 @@ class MLflowWrapperPersistenceManager(PersistenceManager):
 
         if level == PersistenceLevel.READER:
             with log_exec_timer("reader_time") as timer:
-                self._instance.persist(dataset, level)
+                result = self._instance.persist(dataset, level)
 
             mlflow.log_metric(timer.name, timer.duration)
+        else:
+            result = self._instance.persist(dataset, level)
+
+        return result
 
     def unpersist(self, uid: str):
         self._instance.unpersist(uid)
