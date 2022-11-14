@@ -24,4 +24,4 @@ COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-0.1.jar .
 
 COPY $SLAMA_BUILD_TMP/examples-spark .
 
-ENTRYPOINT "/yarn-submit"
+ENTRYPOINT ["/yarn-submit"]

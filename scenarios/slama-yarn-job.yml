@@ -20,8 +20,10 @@ spec:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
-        cmd: ["yarn-submit"]
         args: ["/examples-spark/spark-ml-pipe-lgb-light.py"]
+        envFrom:
+          - configMapRef:
+              name: hadoop-env
         env:
           - name: EXPERIMENT
             value: "84"
