@@ -2,7 +2,7 @@ import inspect
 import json
 import os
 import urllib.request
-from typing import Tuple, Optional, Union, List
+from typing import Tuple, Optional, Union, List, Callable
 
 import mlflow
 from pyspark.sql import SparkSession
@@ -265,3 +265,18 @@ class mlflow_log_exec_timer(log_exec_timer):
         super().__exit__(typ, value, traceback)
         if self.name:
             mlflow.log_metric(self.name, self.duration)
+
+
+def mlflow_deco(main: Callable[[int, int, str], None]):
+    log_to_mlflow = bool(int(os.environ.get("LOG_TO_MLFLOW", "0")))
+    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
+    seed = int(os.environ.get("SEED", "42"))
+    cv = int(os.environ.get("CV", "5"))
+
+    if log_to_mlflow:
+        exp_id = os.environ.get("EXPERIMENT", None)
+        assert exp_id, "EXPERIMENT should be set if LOG_TO_MLFLOW is true"
+        with mlflow.start_run(experiment_id=exp_id) as run:
+            main(cv, seed, dataset_name)
+    else:
+        main(cv, seed, dataset_name)

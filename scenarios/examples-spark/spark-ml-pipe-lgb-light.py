@@ -15,7 +15,7 @@ from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
 from examples_utils import get_persistence_manager, check_executors_count, \
-    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer
+    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco
 from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
 
 uid = uuid.uuid4()
@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Run ./bin/download-datasets.sh to get required datasets into the folder.
 
 
+@mlflow_deco
 def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     spark = get_spark_session()
 
@@ -109,15 +110,4 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
 
 if __name__ == "__main__":
-    log_to_mlflow = bool(int(os.environ.get("LOG_TO_MLFLOW", "0")))
-    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
-    seed = int(os.environ.get("SEED", "42"))
-    cv = int(os.environ.get("CV", "5"))
-
-    if log_to_mlflow:
-        exp_id = os.environ.get("EXPERIMENT", None)
-        assert exp_id, "EXPERIMENT should be set if LOG_TO_MLFLOW is true"
-        with mlflow.start_run(experiment_id=exp_id) as run:
-            main(cv, seed, dataset_name)
-    else:
-        main(cv, seed, dataset_name)
+    main()

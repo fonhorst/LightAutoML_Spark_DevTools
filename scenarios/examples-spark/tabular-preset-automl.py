@@ -2,19 +2,23 @@ import logging.config
 import os
 import uuid
 
+import mlflow
 import pandas as pd
 import pyspark.sql.functions as sf
 from pyspark.ml import PipelineModel
 from pyspark.sql import SparkSession
 
 from examples_utils import get_persistence_manager, BUCKET_NUMS
-from examples_utils import get_dataset_attrs, prepare_test_and_train, get_spark_session
+from examples_utils import get_dataset_attrs, prepare_test_and_train, get_spark_session, \
+    mlflow_log_exec_timer as log_exec_timer, mlflow_deco
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.tasks.base import SparkTask
-from sparklightautoml.utils import log_exec_timer, logging_config, VERBOSE_LOGGING_FORMAT
+from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer as regular_log_exec_timer
 
-logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
+
+uid = uuid.uuid4()
+logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename=f'/tmp/slama-{uid}.log'))
 logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,9 @@ logger = logging.getLogger(__name__)
 # Run ./bin/download-datasets.sh to get required datasets into the folder.
 
 
-def main(spark: SparkSession, dataset_name: str, seed: int):
+@mlflow_deco
+def main(cv: int, seed: int, dataset_name: str):
+    spark = SparkSession.getActiveSession()
     # Algos and layers to be used during automl:
     # For example:
     # 1. use_algos = [["lgb"]]
@@ -30,7 +36,6 @@ def main(spark: SparkSession, dataset_name: str, seed: int):
     # 3. use_algos = [["linear_l2"]]
     # 4. use_algos = [["lgb", "linear_l2"], ["lgb"]]
     use_algos = [["lgb", "linear_l2"], ["lgb"]]
-    cv = 3
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
     persistence_manager = get_persistence_manager()
@@ -38,84 +43,88 @@ def main(spark: SparkSession, dataset_name: str, seed: int):
     # persistence_manager = get_persistence_manager("CompositePlainCachePersistenceManager")
     # persistence_manager = CompositePlainCachePersistenceManager(bucket_nums=BUCKET_NUMS)
 
-    with log_exec_timer("spark-lama training") as train_timer:
-        task = SparkTask(task_type)
-        train_data, test_data = prepare_test_and_train(spark, path, seed)
+    with log_exec_timer("full"):
+        with log_exec_timer("fit") as train_timer:
+            task = SparkTask(task_type)
+            train_data, test_data = prepare_test_and_train(spark, path, seed)
 
-        test_data_dropped = test_data
+            test_data_dropped = test_data
 
-        # optionally: set 'convert_to_onnx': True to use onnx-based version of lgb's model transformer
-        automl = SparkTabularAutoML(
-            spark=spark,
-            task=task,
-            general_params={"use_algos": use_algos},
-            lgb_params={'use_single_dataset_mode': True, 'convert_to_onnx': False, 'mini_batch_size': 1000},
-            linear_l2_params={'default_params': {'regParam': [1e-5]}},
-            reader_params={"cv": cv, "advanced_roles": False},
-            config_path="tabular_config.yml"
-        )
+            # optionally: set 'convert_to_onnx': True to use onnx-based version of lgb's model transformer
+            automl = SparkTabularAutoML(
+                spark=spark,
+                task=task,
+                general_params={"use_algos": use_algos},
+                lgb_params={'use_single_dataset_mode': True, 'convert_to_onnx': False, 'mini_batch_size': 1000},
+                linear_l2_params={'default_params': {'regParam': [1e-5]}},
+                reader_params={"cv": cv, "advanced_roles": False},
+                config_path="tabular_config.yml"
+            )
 
-        oof_predictions = automl.fit_predict(
-            train_data,
-            roles=roles,
-            persistence_manager=persistence_manager
-        )
+            oof_predictions = automl.fit_predict(
+                train_data,
+                roles=roles,
+                persistence_manager=persistence_manager
+            )
 
-    logger.info("Predicting on out of fold")
-
-    score = task.get_dataset_metric()
-    metric_value = score(oof_predictions)
-
-    logger.info(f"score for out-of-fold predictions: {metric_value}")
-
-    transformer = automl.transformer()
-
-    oof_predictions.unpersist()
-    # this is necessary if persistence_manager is of CompositeManager type
-    # it may not be possible to obtain oof_predictions (predictions from fit_predict) after calling unpersist_all
-    automl.persistence_manager.unpersist_all()
-
-    with log_exec_timer("spark-lama predicting on test (#1 way)") as predict_timer:
-        te_pred = automl.predict(test_data_dropped, add_reader_attrs=True)
+        logger.info("Predicting on out of fold")
 
         score = task.get_dataset_metric()
-        test_metric_value = score(te_pred)
+        metric_value = score(oof_predictions)
 
-        logger.info(f"score for test predictions: {test_metric_value}")
+        logger.info(f"score for out-of-fold predictions: {metric_value}")
 
-    with log_exec_timer("spark-lama predicting on test (#2 way)"):
-        te_pred = automl.transformer().transform(test_data_dropped)
+        mlflow.log_metric("oof_score", metric_value)
 
-        pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
-        score = task.get_dataset_metric()
-        test_metric_value = score(te_pred.select(
-            SparkDataset.ID_COLUMN,
-            sf.col(roles['target']).alias('target'),
-            sf.col(pred_column).alias('prediction')
-        ))
+        transformer = automl.transformer()
 
-        logger.info(f"score for test predictions: {test_metric_value}")
+        oof_predictions.unpersist()
+        # this is necessary if persistence_manager is of CompositeManager type
+        # it may not be possible to obtain oof_predictions (predictions from fit_predict) after calling unpersist_all
+        automl.persistence_manager.unpersist_all()
 
-    base_path = "/tmp/spark_results"
-    automl_model_path = os.path.join(base_path, "automl_pipeline")
-    os.makedirs(base_path, exist_ok=True)
+        with log_exec_timer("predict") as predict_timer:
+            te_pred = automl.predict(test_data_dropped, add_reader_attrs=True)
 
-    with log_exec_timer("saving model") as saving_timer:
-        transformer.write().overwrite().save(automl_model_path)
+            score = task.get_dataset_metric()
+            test_metric_value = score(te_pred)
 
-    with log_exec_timer("Loading model time") as loading_timer:
-        pipeline_model = PipelineModel.load(automl_model_path)
+            logger.info(f"score for test predictions: {test_metric_value}")
+            mlflow.log_metric("test_score", test_metric_value)
 
-    with log_exec_timer("spark-lama predicting on test (#3 way)"):
-        te_pred = pipeline_model.transform(test_data_dropped)
+        with regular_log_exec_timer("spark-lama predicting on test (#2 way)"):
+            te_pred = automl.transformer().transform(test_data_dropped)
 
-        pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
-        score = task.get_dataset_metric()
-        test_metric_value = score(te_pred.select(
-            SparkDataset.ID_COLUMN,
-            sf.col(roles['target']).alias('target'),
-            sf.col(pred_column).alias('prediction')
-        ))
+            pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
+            score = task.get_dataset_metric()
+            test_metric_value = score(te_pred.select(
+                SparkDataset.ID_COLUMN,
+                sf.col(roles['target']).alias('target'),
+                sf.col(pred_column).alias('prediction')
+            ))
+
+            logger.info(f"score for test predictions: {test_metric_value}")
+
+        base_path = f"/tmp/models/tabular-preset-automl-{uid}"
+        automl_model_path = os.path.join(base_path, "automl_pipeline")
+        os.makedirs(base_path, exist_ok=True)
+
+        with log_exec_timer("model_saving") as saving_timer:
+            transformer.write().overwrite().save(automl_model_path)
+
+        with log_exec_timer("model_loading") as loading_timer:
+            pipeline_model = PipelineModel.load(automl_model_path)
+
+        with regular_log_exec_timer("spark-lama predicting on test (#3 way)"):
+            te_pred = pipeline_model.transform(test_data_dropped)
+
+            pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
+            score = task.get_dataset_metric()
+            test_metric_value = score(te_pred.select(
+                SparkDataset.ID_COLUMN,
+                sf.col(roles['target']).alias('target'),
+                sf.col(pred_column).alias('prediction')
+            ))
 
     logger.info(f"score for test predictions via loaded pipeline: {test_metric_value}")
 
@@ -141,25 +150,11 @@ def main(spark: SparkSession, dataset_name: str, seed: int):
     return result
 
 
-def multirun(spark: SparkSession, dataset_name: str):
-    seeds = [1, 5, 42, 100, 777]
-    results = [main(spark, dataset_name, seed) for seed in seeds]
-
-    df = pd.DataFrame(results)
-
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-        print(df)
-
-    df.to_csv(f"spark-lama_results_{dataset_name}_{uuid.uuid4()}.csv")
-
-
 if __name__ == "__main__":
     # if one uses bucketing based persistence manager,
     # the argument below number should be equal to what is set to 'bucket_nums' of the manager
     spark_sess = get_spark_session(BUCKET_NUMS)
-    # One can run:
-    # 1. main(dataset_name="lama_test_dataste", seed=42)
-    # 2. multirun(spark_sess, dataset_name="lama_test_dataset")
-    main(spark_sess, dataset_name="lama_test_dataset", seed=42)
+
+    main()
 
     spark_sess.stop()
