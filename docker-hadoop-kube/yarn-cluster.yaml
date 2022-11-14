@@ -195,6 +195,9 @@ spec:
         - name: nfs
           persistentVolumeClaim:
             claimName: mnt-nfs
+        - name: mlflow-artifacts
+          persistentVolumeClaim:
+            claimName: mlflow-artifacts
         - name: ephemeral
           emptyDir: {}
       containers:
@@ -226,6 +229,8 @@ spec:
             - name: nfs
               mountPath: /mnt/nfs/
             # hadoop tmp dir
+            - name: mlflow-artifacts
+              mountPath: /mlflow_data/artifacts
             - name: ephemeral
               mountPath: "/tmp"
 ---
