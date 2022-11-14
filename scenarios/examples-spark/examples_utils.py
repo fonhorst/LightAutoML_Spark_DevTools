@@ -170,7 +170,11 @@ def get_persistence_manager(name: Optional[str] = None):
     assert len(none_val_args) == 0, f"Cannot instantiate class {class_name}. " \
                                     f"Values for the following arguments have not been found: {none_val_args}"
 
-    return MLflowWrapperPersistenceManager(clazz(**ctr_arg_vals))
+    pmanager = MLflowWrapperPersistenceManager(clazz(**ctr_arg_vals))
+
+    mlflow.log_param("persistence_manager", clazz.__name__)
+
+    return pmanager
 
 
 def check_executors_count():
