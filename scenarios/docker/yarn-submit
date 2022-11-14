@@ -44,6 +44,7 @@ spark-submit \
 --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON=${PYSPARK_PYTHON_PATH}" \
 --conf "spark.yarn.appMasterEnv.MLFLOW_TRACKING_URI=http://node2.bdcl:8811" \
 --conf "spark.yarn.appMasterEnv.LOG_TO_MLFLOW=${LOG_TO_MLFLOW}" \
+--conf "spark.yarn.appMasterEnv.LOG_FILES_TO_MLFLOW=${LOG_FILES_TO_MLFLOW}" \
 --conf "spark.yarn.appMasterEnv.GIT_PYTHON_REFRESH=quiet" \
 --conf "spark.yarn.appMasterEnv.EXPERIMENT=${EXPERIMENT}" \
 --conf "spark.yarn.appMasterEnv.DATASET=${DATASET}" \

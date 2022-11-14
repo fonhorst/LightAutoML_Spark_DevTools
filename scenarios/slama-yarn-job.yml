@@ -29,8 +29,8 @@ spec:
             value: "1"
           - name: EXECUTOR_INSTANCES
             value: "1"
-          - name: AUTOTM_FITNESS_TYPE
-            value: "learned_scorer"
+          - name: LOG_FILES_TO_MLFLOW
+            value: "1"
         volumeMounts:
           - name: varlog
             mountPath: /var/log/

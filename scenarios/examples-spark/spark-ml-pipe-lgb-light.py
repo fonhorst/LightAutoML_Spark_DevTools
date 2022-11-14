@@ -1,6 +1,8 @@
+import json
 import logging.config
 import logging.config
 import os
+import urllib.request
 import uuid
 
 import mlflow
@@ -37,7 +39,18 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     mlflow.log_param("executor_memory", spark.conf.get("spark.executor.memory", None))
     mlflow.log_param("partitions_nums", spark.conf.get("spark.default.parallelism", None))
     mlflow.log_param("bucket_nums", os.environ.get("BUCKET_NUMS", None))
-    mlflow.log_dict(spark.conf, "spark_conf.json")
+    mlflow.log_dict(dict(spark.sparkContext.getConf().getAll()), "spark_conf.json")
+
+    spark.sparkContext.parallelize(list(range(10))).sum()
+
+    exec_instances = int(spark.conf.get("spark.executor.instances", None))
+    if exec_instances:
+        url = f"{spark.sparkContext.uiWebUrl}/api/v1/applications/{spark.sparkContext.applicationId}/executors"
+        with urllib.request.urlopen(url) as url:
+            data = json.loads(url.read().decode())
+
+        assert len(data) - 1 == exec_instances, \
+            f"Incorrect number of executors. Expected: {exec_instances}. Found: {len(data) - 1}"
 
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
