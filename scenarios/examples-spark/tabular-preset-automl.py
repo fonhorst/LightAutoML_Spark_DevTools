@@ -57,6 +57,7 @@ def main(cv: int, seed: int, dataset_name: str):
             automl = SparkTabularAutoML(
                 spark=spark,
                 task=task,
+                timeout=10000,
                 general_params={"use_algos": use_algos},
                 lgb_params={
                     'default_params': {'numIterations': 500},
