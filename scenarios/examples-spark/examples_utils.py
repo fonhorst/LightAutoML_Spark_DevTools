@@ -189,9 +189,17 @@ def check_executors_count():
     #     # doing it to verify that computations is possible
     #     spark.sparkContext.parallelize(list(range(10))).sum()
     #
-    #     url = f"{spark.sparkContext.uiWebUrl}/api/v1/applications/{spark.sparkContext.applicationId}/allexecutors"
+    #     print(f"WebUiUrl: {spark.sparkContext.uiWebUrl}")
+    #
+    #     port = int(spark.sparkContext.uiWebUrl.split(':')[2])
+    #
+    #     url = f"http://localhost:{port}/api/v1/applications/{spark.sparkContext.applicationId}/allexecutors"
     #     with urllib.request.urlopen(url) as url:
-    #         data = json.loads(url.read().decode())
+    #         response = url.read().decode()
+    #         print("=============")
+    #         print(response)
+    #         print("=============")
+    #         data = json.loads(response)
     #
     #     assert len(data) - 1 == exec_instances, \
     #         f"Incorrect number of executors. Expected: {exec_instances}. Found: {len(data) - 1}"

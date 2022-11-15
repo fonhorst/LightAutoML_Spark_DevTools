@@ -3,19 +3,16 @@ import os
 import uuid
 
 import mlflow
-import pandas as pd
 import pyspark.sql.functions as sf
 from pyspark.ml import PipelineModel
-from pyspark.sql import SparkSession
-
-from examples_utils import get_persistence_manager, BUCKET_NUMS
-from examples_utils import get_dataset_attrs, prepare_test_and_train, get_spark_session, \
-    mlflow_log_exec_timer as log_exec_timer, mlflow_deco, log_session_params_to_mlflow, check_executors_count
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer as regular_log_exec_timer
 
+from examples_utils import get_dataset_attrs, prepare_test_and_train, get_spark_session, \
+    mlflow_log_exec_timer as log_exec_timer, mlflow_deco, log_session_params_to_mlflow, check_executors_count
+from examples_utils import get_persistence_manager
 
 uid = uuid.uuid4()
 logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename=f'/tmp/slama-{uid}.log'))
