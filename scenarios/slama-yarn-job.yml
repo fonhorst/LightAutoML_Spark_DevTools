@@ -42,7 +42,7 @@ spec:
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "used_cars_dataset_1x"
+            value: "used_cars_dataset_4x"
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop

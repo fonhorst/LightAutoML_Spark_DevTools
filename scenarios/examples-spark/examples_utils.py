@@ -153,8 +153,14 @@ def get_spark_session(partitions_num: Optional[int] = None):
 
 
 def get_persistence_manager(name: Optional[str] = None):
+    spark = SparkSession.getActiveSession()
+
+    computed_bucket_nums = BUCKET_NUMS if spark.sparkContext.master.startswith('local') \
+        else int(spark.conf.get('spark.executor.instances')) * int(spark.conf.get('spark.executor.cores'))
+    bucket_nums = int(os.environ.get("BUCKET_NUMS", computed_bucket_nums))
+
     arg_vals = {
-        "bucket_nums": BUCKET_NUMS
+        "bucket_nums": bucket_nums
     }
 
     class_name = name or os.environ.get(PERSISTENCE_MANAGER_ENV_VAR, None) or "CompositeBucketedPersistenceManager"
