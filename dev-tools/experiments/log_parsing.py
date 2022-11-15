@@ -3,6 +3,7 @@ import itertools
 import json
 import pprint
 import sys
+import warnings
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, cast, Dict
 
@@ -127,6 +128,9 @@ events = [
 
 if __name__ == "__main__":
     log = sys.stdin.readlines()
+
+    # treat cases when lines are separated by '\r' symbol
+    log = [r for line in log for l in line.split('\r') if len((r := l.strip())) > 0]
 
     event_instances = make_events(select_lines(events, log))
     event_instances = sorted(event_instances, key=lambda x: x.start.time)
