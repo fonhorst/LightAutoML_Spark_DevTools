@@ -37,7 +37,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
-    persistence_manager = get_persistence_manager()
+    persistence_manager = get_persistence_manager(run_id=str(uid))
 
     with log_exec_timer("full_time"):
         train_df, test_df = prepare_test_and_train(spark, path, seed)

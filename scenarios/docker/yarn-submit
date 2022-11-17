@@ -28,6 +28,7 @@ EXECUTOR_INSTANCES=${EXECUTOR_INSTANCES:-"4"}
 EXECUTOR_CORES=${EXECUTOR_CORES:-"6"}
 EXECUTOR_MEMORY=${EXECUTOR_MEMORY:-"40g"}
 PART_NUM_KOEF=${PART_NUM_KOEF:-1}
+WAREHOUSE_DIR=${WAREHOUSE_DIR:-"hdfs://node21.bdcl:9000/slama-spark-warehouse"}
 
 # calculable variables
 # shellcheck disable=SC2004
@@ -78,7 +79,7 @@ spark-submit \
 --conf "spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
 --conf "spark.executor.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
 --conf "spark.driver.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
---conf "spark.sql.warehouse.dir=hdfs://node21.bdcl:9000/slama-spark-warehouse" \
+--conf "spark.sql.warehouse.dir=${WAREHOUSE_DIR}" \
 --conf "spark.task.maxFailures=1" \
 --conf "spark.excludeOnFailure.task.maxTaskAttemptsPerNode=1" \
 --conf "spark.excludeOnFailure.stage.maxFailedTasksPerExecutor=1" \

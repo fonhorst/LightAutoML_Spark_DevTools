@@ -1,7 +1,5 @@
 import inspect
-import json
 import os
-import urllib.request
 from typing import Tuple, Optional, Union, List, Callable
 
 import mlflow
@@ -127,7 +125,7 @@ def get_spark_session(partitions_num: Optional[int] = None):
                 # .config("spark.jars.packages",
                 #         "com.microsoft.azure:synapseml_2.12:0.9.5,io.github.fonhorst:spark-lightautoml_2.12:0.1")
                 .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.9.5")
-                .config("spark.jars", "../../LightAutoML/jars/spark-lightautoml_2.12-0.1.jar")
+                .config("spark.jars", "../../../LightAutoML/jars/spark-lightautoml_2.12-0.1.jar")
                 .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
                 .config("spark.driver.extraJavaOptions", "-Dio.netty.tryReflectionSetAccessible=true")
                 .config("spark.executor.extraJavaOptions", "-Dio.netty.tryReflectionSetAccessible=true")
@@ -152,14 +150,25 @@ def get_spark_session(partitions_num: Optional[int] = None):
     return spark_sess
 
 
-def get_persistence_manager(name: Optional[str] = None):
+def get_persistence_manager(run_id: str, name: Optional[str] = None):
     spark = SparkSession.getActiveSession()
 
     computed_bucket_nums = BUCKET_NUMS if spark.sparkContext.master.startswith('local') \
         else int(spark.conf.get('spark.executor.instances')) * int(spark.conf.get('spark.executor.cores'))
     bucket_nums = int(os.environ.get("BUCKET_NUMS", computed_bucket_nums))
 
+    bucketed_folder = f"/tmp/spark_buckets/run_{run_id}"
+
+    # script_env = os.environ.get("SCRIPT_ENV", "local")
+    # if script_env == "cluster":
+    #     hdfs_url = os.environ.get("SCRIPT_HDFS_URL", "http://node21.bdcl:9870")
+    #     client = hdfs.InsecureClient(hdfs_url)
+    #     client.makedirs(bucketed_folder)
+    # else:
+    #     os.makedirs(bucketed_folder)
+
     arg_vals = {
+        "bucketed_datasets_folder": bucketed_folder,
         "bucket_nums": bucket_nums
     }
 

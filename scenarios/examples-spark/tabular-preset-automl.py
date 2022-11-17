@@ -6,7 +6,7 @@ import mlflow
 import pyspark.sql.functions as sf
 from pyspark.ml import PipelineModel
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
-from sparklightautoml.dataset.base import SparkDataset
+from sparklightautoml.dataset.base import SparkDataset, PersistenceLevel
 from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer as regular_log_exec_timer
 
@@ -41,7 +41,7 @@ def main(cv: int, seed: int, dataset_name: str):
     use_algos = [["lgb", "linear_l2"], ["lgb"]]
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
-    persistence_manager = get_persistence_manager()
+    persistence_manager = get_persistence_manager(run_id=str(uid))
     # Alternative ways to define persistence_manager
     # persistence_manager = get_persistence_manager("CompositePlainCachePersistenceManager")
     # persistence_manager = CompositePlainCachePersistenceManager(bucket_nums=BUCKET_NUMS)
@@ -66,7 +66,9 @@ def main(cv: int, seed: int, dataset_name: str):
                     'convert_to_onnx': False,
                     'mini_batch_size': 1000
                 },
-                linear_l2_params={'default_params': {'regParam': [1e-5]}},
+                linear_l2_params={
+                    'default_params': {'regParam': [1e-5]}
+                },
                 reader_params={"cv": cv, "advanced_roles": False},
                 config_path="tabular_config.yml"
             )
@@ -79,6 +81,9 @@ def main(cv: int, seed: int, dataset_name: str):
 
         logger.info("Predicting on out of fold")
 
+        train_data.write.parquet("/tmp/train_data_tabular_preset.parquet", mode='overwrite')
+        oof_predictions.data.write.parquet("/tmp/oof_predictions_tabular_preset.parquet", mode='overwrite')
+
         score = task.get_dataset_metric()
         metric_value = score(oof_predictions)
 
@@ -88,10 +93,12 @@ def main(cv: int, seed: int, dataset_name: str):
 
         transformer = automl.transformer()
 
-        oof_predictions.unpersist()
+        oof_predictions.persist(level=PersistenceLevel.CHECKPOINT)
+        # TODO: return unpersisting back
+        # oof_predictions.unpersist()
         # this is necessary if persistence_manager is of CompositeManager type
         # it may not be possible to obtain oof_predictions (predictions from fit_predict) after calling unpersist_all
-        automl.persistence_manager.unpersist_all()
+        # automl.persistence_manager.unpersist_all()
 
         with log_exec_timer("predict") as predict_timer:
             te_pred = automl.predict(test_data_dropped, add_reader_attrs=True)
