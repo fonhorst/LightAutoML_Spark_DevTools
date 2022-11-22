@@ -130,3 +130,7 @@ dmypy.json
 
 docker-hadoop-kube/spark-submit-3.0.1/*.whl
 docker-hadoop-kube/spark-submit-3.0.1/*.jar
+
+# PyCharm
+.idea
+*.iml
