@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <property>
+        <name>yarn.resourcemanager.hostname</name>
+        <value>node2.bdcl</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.address</name>
+        <value>node2.bdcl:32182</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.scheduler.address</name>
+        <value>node2.bdcl:31906</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.resource-tracker.address</name>
+        <value>node2.bdcl:30777</value>
+    </property>
+
+</configuration>

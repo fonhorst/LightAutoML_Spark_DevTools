@@ -9,8 +9,8 @@ RUN python3 -c 'from pyspark.sql import SparkSession; SparkSession.builder.confi
 USER root
 #RUN pip install torchvision==0.11.3
 
-COPY build_tmp/dist/LightAutoML-0.3.0.tar.gz /opt
-COPY build_tmp/spark-lightautoml_2.12-0.1.jar /opt
+COPY build_tmp/dist/LightAutoML-0.3.0-spark3.2.0.tar.gz /opt
+COPY build_tmp/spark-lightautoml_2.12-0.1-spark3.2.0.jar /opt
 
 RUN pip install /opt/LightAutoML-0.3.0.tar.gz
 

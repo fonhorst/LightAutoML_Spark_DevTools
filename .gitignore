@@ -134,3 +134,12 @@ docker-hadoop-kube/spark-submit-3.0.1/*.jar
 # PyCharm
 .idea
 *.iml
+
+# other
+**/build_tmp/
+
+*.jar
+
+# meld temp files
+*.orig
+

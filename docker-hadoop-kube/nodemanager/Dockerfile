@@ -12,6 +12,4 @@ RUN apt update
 
 RUN apt install build-essential libncurses5-dev zlib1g-dev libnss3-dev libgdbm-dev libssl-dev libsqlite3-dev libffi-dev libreadline-dev curl libbz2-dev wget -y
 
-
-
 CMD ["/run.sh"]

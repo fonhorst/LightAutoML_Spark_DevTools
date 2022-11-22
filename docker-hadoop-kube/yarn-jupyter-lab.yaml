@@ -1,0 +1,212 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-slama-jupyterlab-notebooks
+spec:
+  capacity:
+    storage: '100Gi'
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-hdd
+  hostPath:
+    path: /mnt/ess_storage/DN_1/storage/SLAMA/jupyterlab_notebooks
+    type: Directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyterlab-notebooks
+spec:
+  volumeName: pv-slama-jupyterlab-notebooks
+  storageClassName: local-hdd
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: '100Gi'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jupyter-server-config
+data:
+  jupyter_server_config.py: |
+    # Copyright (c) Jupyter Development Team.
+    # Distributed under the terms of the Modified BSD License.
+    # mypy: ignore-errors
+    import os
+    import stat
+    import subprocess
+
+    from jupyter_core.paths import jupyter_data_dir
+
+    c = get_config()  # noqa: F821
+    c.NotebookApp.token=''
+    c.ServerApp.ip = "0.0.0.0"
+    c.ServerApp.port = 8888
+    c.ServerApp.open_browser = False
+
+    # to output both image/svg+xml and application/pdf plot formats in the notebook file
+    c.InlineBackend.figure_formats = {"png", "jpeg", "svg", "pdf"}
+
+    # https://github.com/jupyter/notebook/issues/3130
+    c.FileContentsManager.delete_to_trash = False
+
+    # Generate a self-signed certificate
+    OPENSSL_CONFIG = """\
+    [req]
+    distinguished_name = req_distinguished_name
+    [req_distinguished_name]
+    """
+    if "GEN_CERT" in os.environ:
+        dir_name = jupyter_data_dir()
+        pem_file = os.path.join(dir_name, "notebook.pem")
+        os.makedirs(dir_name, exist_ok=True)
+
+        # Generate an openssl.cnf file to set the distinguished name
+        cnf_file = os.path.join(os.getenv("CONDA_DIR", "/usr/lib"), "ssl", "openssl.cnf")
+        if not os.path.isfile(cnf_file):
+            with open(cnf_file, "w") as fh:
+                fh.write(OPENSSL_CONFIG)
+
+        # Generate a certificate if one doesn't exist on disk
+        subprocess.check_call(
+            [
+                "openssl",
+                "req",
+                "-new",
+                "-newkey=rsa:2048",
+                "-days=365",
+                "-nodes",
+                "-x509",
+                "-subj=/C=XX/ST=XX/L=XX/O=generated/CN=generated",
+                f"-keyout={pem_file}",
+                f"-out={pem_file}",
+            ]
+        )
+        # Restrict access to the file
+        os.chmod(pem_file, stat.S_IRUSR | stat.S_IWUSR)
+        c.ServerApp.certfile = pem_file
+
+    # Change default umask for all subprocesses of the notebook server if set in
+    # the environment
+    if "NB_UMASK" in os.environ:
+        os.umask(int(os.environ["NB_UMASK"], 8))
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slama-jupyterlab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slama-jupyterlab
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # how many pods we can add at a time
+      maxUnavailable: 1  # maxUnavailable define how many pods can be unavailable
+  template:
+    metadata:
+      labels:
+        app: slama-jupyterlab
+    spec:
+      volumes:
+        - name: jupyter-config
+          configMap:
+            name: jupyter-server-config
+            items:
+              - key: jupyter_server_config.py
+                path: jupyter_server_config.py
+        - name: data
+          persistentVolumeClaim:
+            claimName: spark-lama-data
+            readOnly: false
+        - name: nfs
+          persistentVolumeClaim:
+            claimName: mnt-nfs
+            readOnly: false
+        - name: python-envs
+          persistentVolumeClaim:
+            claimName: python-envs
+            readOnly: true
+        - name: jars
+          persistentVolumeClaim:
+            claimName: jars
+            readOnly: true
+        - name: jupyterlab-notebooks
+          persistentVolumeClaim:
+            claimName: jupyterlab-notebooks
+            readOnly: false
+        - name: ephemeral
+          emptyDir: { }
+      containers:
+      - name: jupyter
+        image: node2.bdcl:5000/yarn-jupyter-lab:slama-yarn
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "70Gi"
+            cpu: "8"
+          limits:
+            memory: "70Gi"
+            cpu: "8"
+        envFrom:
+          - configMapRef:
+              name: hadoop-env
+        ports:
+        - containerPort: 8888
+        - containerPort: 4040
+        - containerPort: 4041
+        - containerPort: 4042
+        - containerPort: 4043
+        volumeMounts:
+          - name: data
+            mountPath: /opt/spark_data/
+          - name: nfs
+            mountPath: /mnt/nfs/
+          - name: ephemeral
+            mountPath: "/tmp"
+          - name: python-envs
+            mountPath: /home/jovyan/python-envs
+          - name: jars
+            mountPath: /home/jovyan/jars
+          - name: jupyterlab-notebooks
+            mountPath: /home/jovyan/notebooks
+          - name: jupyter-config
+            mountPath: /etc/jupyter/jupyter_server_config.py
+            subPath: jupyter_server_config.py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slama-jupyterlab
+spec:
+  type: NodePort
+  ports:
+    - port: 8888
+      nodePort: 32306
+      protocol: TCP
+      name: jupyter
+    - port: 4040
+      nodePort: 32307
+      protocol: TCP
+      name: spark
+    - port: 4041
+      nodePort: 32308
+      protocol: TCP
+      name: spark1
+    - port: 4042
+      nodePort: 32309
+      protocol: TCP
+      name: spark2
+    - port: 4043
+      nodePort: 32310
+      protocol: TCP
+      name: spark3
+  selector:
+    app: slama-jupyterlab

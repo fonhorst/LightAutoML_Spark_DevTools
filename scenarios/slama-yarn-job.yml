@@ -1,0 +1,52 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: slama-yarn-job
+  labels:
+    app: slama-yarn-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: slama-yarn-job
+      annotations:
+        "sidecar.istio.io/inject": "false"
+    spec:
+      volumes:
+        - name: hadoop-configs
+          configMap:
+            name: hadoop-configs
+#            items:
+#              - key: core-site.xml
+#                path: core-site.xml
+#              - key: yarn-site.xml
+#                path: yarn-site.xml
+      containers:
+      - name: slama-yarn
+        image: node2.bdcl:5000/slama:latest
+        imagePullPolicy: Always
+        args: ["/src/examples-spark/tabular-preset-automl.py"]
+#        envFrom:
+#          - configMapRef:
+#              name: hadoop-env
+        env:
+          - name: HADOOP_CONF_DIR
+            value: /etc/hadoop
+          - name: EXPERIMENT
+            value: "84"
+          - name: LOG_TO_MLFLOW
+            value: "1"
+          - name: EXECUTOR_INSTANCES
+            value: "4"
+          - name: LOG_FILES_TO_MLFLOW
+            value: "1"
+          - name: DATASET
+            value: "used_cars_dataset_1x"
+          - name: WAREHOUSE_DIR
+            value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
+        volumeMounts:
+          - name: hadoop-configs
+            mountPath: /etc/hadoop
+      restartPolicy: Never
+  backoffLimit: 0
