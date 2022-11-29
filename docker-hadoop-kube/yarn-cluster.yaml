@@ -104,11 +104,11 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: "2Gi"
-              cpu: "500m"
+              memory: "8Gi"
+              cpu: "2"
             limits:
-              memory: "2Gi"
-              cpu: "500m"
+              memory: "8Gi"
+              cpu: "2"
           envFrom:
             - configMapRef:
                 name: hadoop-env
@@ -170,7 +170,7 @@ metadata:
   name: yarn-nodemanager
 spec:
   serviceName: yarn-nms
-  replicas: 1
+  replicas: 6
   selector:
     matchLabels:
       app: yarn-nodemanager
