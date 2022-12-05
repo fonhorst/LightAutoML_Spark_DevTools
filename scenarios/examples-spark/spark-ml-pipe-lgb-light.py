@@ -50,7 +50,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
         iterator = SparkFoldsIterator(sdataset).convert_to_holdout_iterator()
 
-        spark_ml_algo = SparkBoostLGBM(freeze_defaults=False, use_single_dataset_mode=True)
+        spark_ml_algo = SparkBoostLGBM(freeze_defaults=False, use_single_dataset_mode=True, parallelism=5)
         spark_features_pipeline = SparkLGBSimpleFeatures()
 
         ml_pipe = SparkMLPipeline(
