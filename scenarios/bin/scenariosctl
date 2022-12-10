@@ -17,8 +17,8 @@ function build_images() {
   rm -rf "$slama_build_path"
   mkdir -p "$slama_build_path"
 
-  cp ${slama_path}/dist/SparkLightAutoML-0.3.0-py3-none-any.whl ${slama_build_path}
-  cp ${slama_path}/jars/spark-lightautoml_2.12-0.1.jar ${slama_build_path}
+  cp ${slama_path}/dist/SparkLightAutoML_DEV-0.3.2-py3-none-any.whl ${slama_build_path}
+  cp ${slama_path}/jars/spark-lightautoml_2.12-0.1.1.jar ${slama_build_path}
   cp ${slama_path}/requirements.txt ${slama_build_path}
   cp -r examples-spark ${slama_build_path}/examples-spark/
 

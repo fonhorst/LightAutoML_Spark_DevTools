@@ -1,4 +1,5 @@
 import logging.config
+import uuid
 
 import mlflow
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
@@ -15,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 # NOTE! This demo requires datasets to be downloaded into a local folder.
 # Run ./bin/download-datasets.sh to get required datasets into the folder.
+
+uid = uuid.uuid4()
+logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename=f'/tmp/slama-{uid}.log'))
+logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
+logger = logging.getLogger(__name__)
 
 
 @mlflow_deco
@@ -35,12 +41,12 @@ def main(cv: int, seed: int, dataset_name: str):
     use_algos = [["lgb"]]
     # path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
-    path = '/opt/experiments/test_exp/full_second_level_train.parquet'
-    # path = '/opt/spark_data/replay/experiments/ml25m_first_level_default/partial_train_replay__models__slim__SLIM_2e7686b8f7124e5d9289c83f1071549d.parquet'
+    # path = '/opt/experiments/test_exp/full_second_level_train.parquet'
+    path = 'file:///opt/spark_data/replay/experiments/ml25m_first_level_default/partial_train_replay__models__slim__SLIM_2e7686b8f7124e5d9289c83f1071549d.parquet'
     task_type = 'binary'
     roles = {"target": "target"}
 
-    persistence_manager = get_persistence_manager()
+    persistence_manager = get_persistence_manager(run_id=str(uid))
     # Alternative ways to define persistence_manager
     # persistence_manager = get_persistence_manager("CompositePlainCachePersistenceManager")
     # persistence_manager = CompositePlainCachePersistenceManager(bucket_nums=BUCKET_NUMS)
@@ -56,6 +62,7 @@ def main(cv: int, seed: int, dataset_name: str):
         automl = SparkTabularAutoML(
             spark=spark,
             task=task,
+            timeout=10000,
             general_params={"use_algos": use_algos},
             lgb_params={
                 'use_single_dataset_mode': True,
@@ -63,7 +70,8 @@ def main(cv: int, seed: int, dataset_name: str):
                 'mini_batch_size': 1000
             },
             linear_l2_params={'default_params': {'regParam': [1e-5]}},
-            reader_params={"cv": cv, "advanced_roles": False}
+            reader_params={"cv": cv, "advanced_roles": False},
+            config_path="tabular_config.yml"
         )
 
         with mlflow_log_exec_timer("fit"):
