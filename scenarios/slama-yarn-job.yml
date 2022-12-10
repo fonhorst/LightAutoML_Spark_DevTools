@@ -2,14 +2,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: slama-yarn-job
+  name: slama-yarn-job-1
   labels:
-    app: slama-yarn-job
+    app: slama-yarn-job-1
 spec:
   template:
     metadata:
       labels:
-        app: slama-yarn-job
+        app: slama-yarn-job-1
       annotations:
         "sidecar.istio.io/inject": "false"
     spec:
@@ -38,7 +38,11 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "4"
+            value: "1"
+          - name: DRIVER_MEMORY
+            value: "10g"
+          - name: EXECUTOR_MEMORY
+            value: "40g"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
