@@ -17,7 +17,7 @@ from sparklightautoml.tasks.base import SparkTask as SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
-from examples_utils import get_persistence_manager, mlflow_deco
+from examples_utils import get_persistence_manager, mlflow_deco, log_session_params_to_mlflow
 from examples_utils import get_spark_session, get_dataset_attrs, prepare_test_and_train
 
 uid = uuid.uuid4()
@@ -45,6 +45,7 @@ def main(cv: int = 5, seed: int = 42, dataset_name: str = "lama_test_dataset"):
         'top_intersections': 4
     }
 
+    log_session_params_to_mlflow()
     mlflow.log_param("seed", seed)
     mlflow.log_param("cv", cv)
     mlflow.log_param("dataset", dataset_name)

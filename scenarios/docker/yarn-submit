@@ -14,6 +14,8 @@ fi
 
 SCRIPT="$1"
 
+SLAMA_PARALLELISM=${SLAMA_PARALLELISM:-"1"}
+SPARK_SCHEDULER_MODE=${SPARK_SCHEDULER_MODE:-"FIFO"}
 PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/Python-3.9.12/bin/python3.9"}
 LOG_TO_MLFLOW=${LOG_TO_MLFLOW:-"1"}
 LOG_FILES_TO_MLFLOW=${LOG_FILES_TO_MLFLOW:-"0"}
@@ -26,7 +28,7 @@ DRIVER_MEMORY=${DRIVER_MEMORY:-"16g"}
 DRIVER_MAX_RESULT_SIZE=${DRIVER_MAX_RESULT_SIZE:-"5g"}
 EXECUTOR_INSTANCES=${EXECUTOR_INSTANCES:-"4"}
 EXECUTOR_CORES=${EXECUTOR_CORES:-"6"}
-EXECUTOR_MEMORY=${EXECUTOR_MEMORY:-"40g"}
+EXECUTOR_MEMORY=${EXECUTOR_MEMORY:-"25g"}
 PART_NUM_KOEF=${PART_NUM_KOEF:-1}
 WAREHOUSE_DIR=${WAREHOUSE_DIR:-"hdfs://node21.bdcl:9000/slama-spark-warehouse"}
 
@@ -43,6 +45,8 @@ spark-submit \
 --master yarn \
 --deploy-mode cluster \
 --conf "spark.yarn.appMasterEnv.SCRIPT_ENV=cluster" \
+--conf "spark.yarn.appMasterEnv.SLAMA_PARALLELISM=${SLAMA_PARALLELISM}" \
+--conf "spark.scheduler.mode=${SPARK_SCHEDULER_MODE}" \
 --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON=${PYSPARK_PYTHON_PATH}" \
 --conf "spark.yarn.appMasterEnv.MLFLOW_TRACKING_URI=http://node2.bdcl:8811" \
 --conf "spark.yarn.appMasterEnv.LOG_TO_MLFLOW=${LOG_TO_MLFLOW}" \

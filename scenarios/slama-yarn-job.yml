@@ -27,6 +27,7 @@ spec:
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
         args: ["/src/examples-spark/spark-ml-pipe-linearlgbfs.py"]
+#        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
 #        envFrom:
 #          - configMapRef:
 #              name: hadoop-env
@@ -38,15 +39,17 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "2"
+            value: "8"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "used_cars_dataset"
+            value: "used_cars_dataset_4x"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: SLAMA_PARALLELISM
-            value: 5
+            value: "1"
+          - name: SPARK_SCHEDULER_MODE
+            value: "FAIR"
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop

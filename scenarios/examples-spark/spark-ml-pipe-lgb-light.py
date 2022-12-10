@@ -30,16 +30,18 @@ logger = logging.getLogger(__name__)
 
 @mlflow_deco
 def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
+    parallelism = int(os.environ.get("SLAMA_PARALLELISM", "1"))
     spark = get_spark_session()
-
-    log_session_params_to_mlflow()
-    check_executors_count()
-
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
-
     persistence_manager = get_persistence_manager(run_id=str(uid))
 
-    with log_exec_timer("full_time"):
+    log_session_params_to_mlflow()
+    mlflow.log_param("seed", seed)
+    mlflow.log_param("cv", cv)
+    mlflow.log_param("dataset", dataset_name)
+    mlflow.log_param("parallelism", parallelism)
+
+    with log_exec_timer("full_time") as full_timer:
         train_df, test_df = prepare_test_and_train(spark, path, seed)
 
         task = SparkTask(task_type)
@@ -48,9 +50,15 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
         sreader = SparkToSparkReader(task=task, cv=cv, advanced_roles=False)
         sdataset = sreader.fit_read(train_df, roles=roles, persistence_manager=persistence_manager)
 
-        iterator = SparkFoldsIterator(sdataset).convert_to_holdout_iterator()
+        iterator = SparkFoldsIterator(sdataset)#.convert_to_holdout_iterator()
 
-        spark_ml_algo = SparkBoostLGBM(freeze_defaults=False, use_single_dataset_mode=True, parallelism=5)
+        spark_ml_algo = SparkBoostLGBM(
+            freeze_defaults=False,
+            use_single_dataset_mode=False,
+            parallelism=parallelism,
+            num_tasks=2,
+            num_threads=2
+        )
         spark_features_pipeline = SparkLGBSimpleFeatures()
 
         ml_pipe = SparkMLPipeline(
@@ -64,37 +72,42 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
             oof_preds_ds = ml_pipe.fit_predict(iterator)
             oof_score = score(oof_preds_ds[:, spark_ml_algo.prediction_feature])
 
-            logger.info(f"OOF score: {oof_score}")
-            mlflow.log_metric("oof_score", oof_score)
+        logger.info(f"OOF score: {oof_score}, {fit_time.name}: {fit_time.duration}")
+        mlflow.log_metric("oof_score", oof_score)
+        mlflow.log_metric(fit_time.name, fit_time.duration)
 
         # 1. first way (LAMA API)
-        with log_exec_timer("predict") as predict_time:
+        with log_exec_timer("predict_time") as predict_time:
             test_sds = sreader.read(test_df, add_array_attrs=True)
             test_preds_ds = ml_pipe.predict(test_sds)
             test_score = score(test_preds_ds[:, spark_ml_algo.prediction_feature])
 
-            logger.info(f"Test score (#1 way): {test_score}")
-            mlflow.log_metric("test_score", test_score)
+        logger.info(f"Test score (#1 way): {test_score}, {predict_time.name}: {predict_time.duration}")
+        mlflow.log_metric("test_score", test_score)
+        mlflow.log_metric(predict_time.name, predict_time.duration)
 
-        model_path = f"/tmp/models/spark-ml-pipe-lgb-light-{uid}"
-        # 2. second way (Spark ML API, save-load-predict)
-        with log_exec_timer("model_saving") as save_time:
-            transformer = PipelineModel(stages=[sreader.transformer(add_array_attrs=True), ml_pipe.transformer()])
-            transformer.write().overwrite().save(model_path)
+        # model_path = f"/tmp/models/spark-ml-pipe-lgb-light-{uid}"
+        # # 2. second way (Spark ML API, save-load-predict)
+        # with log_exec_timer("model_saving") as save_time:
+        #     transformer = PipelineModel(stages=[sreader.transformer(add_array_attrs=True), ml_pipe.transformer()])
+        #     transformer.write().overwrite().save(model_path)
+        #
+        # #     mlflow.log_param("model_path", model_path)
+        #
+        # with log_exec_timer("model_loading") as load_time:
+        #     pipeline_model = PipelineModel.load(model_path)
+        #
+        # test_pred_df = pipeline_model.transform(test_df)
+        # test_pred_df = test_pred_df.select(
+        #     SparkDataset.ID_COLUMN,
+        #     F.col(roles['target']).alias('target'),
+        #     F.col(spark_ml_algo.prediction_feature).alias('prediction')
+        # )
+        # test_score = score(test_pred_df)
+        # logger.info(f"Test score (#3 way): {test_score}")
 
-            mlflow.log_param("model_path", model_path)
-
-        with log_exec_timer("model_loading") as load_time:
-            pipeline_model = PipelineModel.load(model_path)
-
-        test_pred_df = pipeline_model.transform(test_df)
-        test_pred_df = test_pred_df.select(
-            SparkDataset.ID_COLUMN,
-            F.col(roles['target']).alias('target'),
-            F.col(spark_ml_algo.prediction_feature).alias('prediction')
-        )
-        test_score = score(test_pred_df)
-        logger.info(f"Test score (#3 way): {test_score}")
+    logger.info(f"f{full_timer.name}: {full_timer.duration}")
+    mlflow.log_metric(full_timer.name, full_timer.duration)
 
     logger.info("Finished")
 
