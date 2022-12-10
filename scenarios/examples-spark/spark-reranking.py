@@ -65,6 +65,8 @@ def main(cv: int, seed: int, dataset_name: str):
             timeout=10000,
             general_params={"use_algos": use_algos},
             lgb_params={
+                'default_params': {'numIterations': 500},
+                'freeze_defaults': True,
                 'use_single_dataset_mode': True,
                 'convert_to_onnx': False,
                 'mini_batch_size': 1000
@@ -86,7 +88,7 @@ def main(cv: int, seed: int, dataset_name: str):
             score = task.get_dataset_metric()
             metric_value = score(oof_predictions)
 
-            mlflow.log_metric()
+            mlflow.log_metric("oof_score", metric_value)
 
         logger.info(f"score for out-of-fold predictions: {metric_value}")
 
@@ -104,6 +106,8 @@ def main(cv: int, seed: int, dataset_name: str):
             test_metric_value = score(te_pred)
 
             logger.info(f"score for test predictions: {test_metric_value}")
+
+            mlflow.log_metric("test_score", test_metric_value)
 
     logger.info("Predicting is finished")
 
