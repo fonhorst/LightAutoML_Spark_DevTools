@@ -2,14 +2,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: slama-yarn-job-1
+  name: slama-yarn-job-4
   labels:
-    app: slama-yarn-job-1
+    app: slama-yarn-job-4
 spec:
   template:
     metadata:
       labels:
-        app: slama-yarn-job-1
+        app: slama-yarn-job-2
       annotations:
         "sidecar.istio.io/inject": "false"
     spec:
@@ -38,7 +38,7 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "1"
+            value: "4"
           - name: DRIVER_MEMORY
             value: "10g"
           - name: EXECUTOR_MEMORY
@@ -46,7 +46,7 @@ spec:
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "ml25m_slim"
+            value: "ml1m_slim"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
         volumeMounts:

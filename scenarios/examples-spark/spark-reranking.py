@@ -1,4 +1,5 @@
 import logging.config
+import os
 import uuid
 
 import mlflow
@@ -42,7 +43,17 @@ def main(cv: int, seed: int, dataset_name: str):
     # path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
     # path = '/opt/experiments/test_exp/full_second_level_train.parquet'
-    path = 'file:///opt/spark_data/replay/experiments/ml25m_first_level_default/partial_train_replay__models__slim__SLIM_2e7686b8f7124e5d9289c83f1071549d.parquet'
+    dataset = os.environ.get("DATASET", None)
+
+    if dataset == "ml25m_slim":
+        path = 'file:///opt/spark_data/replay/experiments/ml25m_first_level_default/partial_train_replay__models__slim__SLIM_2e7686b8f7124e5d9289c83f1071549d.parquet'
+    elif dataset == "ml1m_slim":
+        path = "file:///opt/spark_data/replay/experiments/ml1m_first_level_default/partial_train_replay__models__slim__SLIM_b77f553e2ff94556ad24d640f4b1dee3.parquet"
+    else:
+        raise Exception(f"Unsupported dataset: {dataset}")
+
+    mlflow.log_param("dataset", dataset)
+
     task_type = 'binary'
     roles = {"target": "target"}
 
