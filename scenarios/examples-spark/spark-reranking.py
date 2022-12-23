@@ -47,8 +47,14 @@ def main(cv: int, seed: int, dataset_name: str):
 
     if dataset == "ml25m_slim":
         path = 'file:///opt/spark_data/replay/experiments/ml25m_first_level_default/partial_train_replay__models__slim__SLIM_2e7686b8f7124e5d9289c83f1071549d.parquet'
+    elif dataset == "ml20m_slim":
+        path = 'file:///opt/spark_data/replay/experiments/ml20m_first_level_default/partial_train_replay__models__slim__SLIM_3a074e69a67b4c0b95ef04e8ff95fd1a.parquet'
+    elif dataset == "ml10m_slim":
+        path = 'file:///opt/spark_data/replay/experiments/ml10m_first_level_default/partial_train_replay__models__slim__SLIM_c4583360625f4e8d85b67e1cb0db66e8.parquet'
     elif dataset == "ml1m_slim":
         path = "file:///opt/spark_data/replay/experiments/ml1m_first_level_default/partial_train_replay__models__slim__SLIM_b77f553e2ff94556ad24d640f4b1dee3.parquet"
+    elif dataset == "netflix_slim":
+        path = "file:///opt/spark_data/replay/experiments/netflix_first_level_default//partial_train_replay__models__slim__SLIM_d412fe4f684742f482e4ccd4ba005c45.parquet"
     else:
         raise Exception(f"Unsupported dataset: {dataset}")
 

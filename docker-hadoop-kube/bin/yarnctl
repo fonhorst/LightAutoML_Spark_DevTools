@@ -157,6 +157,23 @@ function help() {
   "
 }
 
+function run_local_juphub() {
+    docker run -d \
+      -v /mnt/ess_storage/DN_1/storage/SLAMA/kaggle_used_cars_dataset:/opt/spark_data/ \
+      -v /mnt/ess_storage/DN_1/storage/SLAMA/python_envs:/home/jovyan/python-envs \
+      -v /mnt/ess_storage/DN_1/storage/SLAMA/jars:/home/jovyan/jars \
+      -v /mnt/ess_storage/DN_1/storage/SLAMA/jupyterlab_notebooks:/home/jovyan/notebooks \
+      -v /mnt/ess_storage/DN_1/storage/SLAMA/jupyter_server_config.py:/etc/jupyter/jupyter_server_config.py \
+      -p 8888:8888 \
+      -p 4040:4040 \
+      -p 4041:4041 \
+      -p 4042:4042 \
+      -p 4043:4043 \
+      --memory=70g \
+      --cpuset-cpus=0-7 \
+      node2.bdcl:5000/yarn-jupyter-lab:slama-yarn
+}
+
 function main () {
     cmd="$1"
 
