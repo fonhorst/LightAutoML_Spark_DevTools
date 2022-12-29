@@ -46,7 +46,9 @@ spec:
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "used_cars_dataset"
+            value: "used_cars_dataset_1x"
+          - name: PARALLELISM
+            value: "1"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
         volumeMounts:

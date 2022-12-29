@@ -166,8 +166,8 @@ class ParallelExperiment:
             isProvideTrainingMetric=True,
             chunkSize=4_000_000,
             useBarrierExecutionMode=True,
-            numTasks=2,
-            numThreads=2
+            numTasks=24,
+            numThreads=6
         )
 
         if task_type == "reg":
@@ -196,15 +196,17 @@ class ParallelExperiment:
     def run(self) -> List[Tuple[int, float]]:
         logger.info("Starting to run the experiment")
 
+        parallelism = int(os.environ.get("PARALLELISM", "1"))
+
         tasks = [
             functools.partial(
                 self.train_model,
                 fold
             )
-            for fold in range(3)
+            for fold in range(5)
         ]
 
-        pool = ThreadPool(processes=3)
+        pool = ThreadPool(processes=parallelism)
         tasks = map(inheritable_thread_target, tasks)
         results = (result for result in pool.imap_unordered(lambda f: f(), tasks) if result)
         results = sorted(results, key=lambda x: x[0])
