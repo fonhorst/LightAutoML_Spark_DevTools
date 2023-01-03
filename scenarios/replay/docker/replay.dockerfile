@@ -8,7 +8,7 @@ RUN apt-get update && \
 	rm -rf /var/lib/apt/lists/*
 
 # we install only pyspark, because we need to obtain spark-submit command
-RUN pip install pyspark==3.1.3
+RUN pip install pyspark==3.2.0
 RUN ln -s /usr/local/lib/python3.9/site-packages/pyspark/bin/spark-submit /usr/bin/spark-submit
 RUN mkdir -p /src
 

@@ -236,6 +236,21 @@ def main(spark: SparkSession, dataset_name: str):
             mlflow.log_metric(
                 "parquets_read_sec", parquets_read_timer.duration
             )
+        elif dataset_name == "ml25m":
+            with log_exec_timer(
+                    "Train/test/user_features datasets reading to parquet"
+            ) as parquets_read_timer:
+                train = spark.read.parquet(
+                    "file:///opt/spark_data/replay/experiments/ml25m_first_level_default/train.parquet"
+                )
+                test = spark.read.parquet(
+                    "file:///opt/spark_data/replay/experiments/ml25m_first_level_default/test.parquet"
+                )
+                train = train.repartition(partition_num, "user_idx")
+                test = test.repartition(partition_num, "user_idx")
+            mlflow.log_metric(
+                "parquets_read_sec", parquets_read_timer.duration
+            )
         else:
             raise ValueError("Unknown dataset.")
 

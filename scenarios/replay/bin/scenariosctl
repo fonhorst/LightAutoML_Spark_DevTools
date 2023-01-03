@@ -5,7 +5,7 @@ set -ex
 DOCKER_REPO=node2.bdcl:5000
 
 function build_images() {
-  replay_project_path="../../RePlay"
+  replay_project_path="../../../RePlay"
   replay_build_path="./docker/replay_build_tmp"
 
   rm -rf "$replay_build_path"

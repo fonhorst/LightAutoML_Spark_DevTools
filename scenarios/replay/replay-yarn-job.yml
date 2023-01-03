@@ -36,11 +36,12 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "True"
           - name: EXECUTOR_INSTANCES
-            value: "4"
+            value: "8"
           - name: DATASET
-            value: "MovieLens__1m"
+#            value: "MovieLens__10m"
+            value: "ml25m"
           - name: MODEL
-            value: "ALS_NMSLIB_HNSW"
+            value: "ItemKNN"
           - name: USE_BUCKETING
             value: "False"
         volumeMounts:
