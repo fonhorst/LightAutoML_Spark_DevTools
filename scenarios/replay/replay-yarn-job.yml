@@ -39,7 +39,8 @@ spec:
             value: "8"
           - name: DATASET
 #            value: "MovieLens__10m"
-            value: "ml25m"
+#            value: "ml25m"
+            value: "MillionSongDataset__1"
           - name: MODEL
             value: "ItemKNN"
           - name: USE_BUCKETING

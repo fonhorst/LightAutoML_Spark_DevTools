@@ -139,6 +139,8 @@ def main(spark: SparkSession, dataset_name: str):
             else:
                 fraction = dataset_params[1]
 
+            fraction = "1.0"
+
             # data = MillionSongDataset(
             #     path="/opt/spark_data/replay_datasets/MillionSongDataset"
             # )
@@ -476,6 +478,9 @@ def main(spark: SparkSession, dataset_name: str):
             model = ClusterRec()
         else:
             raise ValueError("Unknown model.")
+
+        train = train.repartition(partition_num, "user_idx")
+        test = test.repartition(partition_num, "user_idx")
 
         kwargs = {}
         if isinstance(model, (ClusterRec)):
