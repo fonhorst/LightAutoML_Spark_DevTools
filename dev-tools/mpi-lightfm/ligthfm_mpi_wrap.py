@@ -275,13 +275,13 @@ class LightFMMPIWrap:
         """ Perform AllReduce operation summing up representations and averaging the optimization parameters. """
 
         sum_attributes = (
-            "local_item_features",
-            "local_item_biases",
             "local_user_features",
             "local_user_biases",
         )
 
         average_attributes = (
+            "local_item_features",
+            "local_item_biases",
             "local_item_feature_gradients",
             "local_item_feature_momentum",
             "local_item_bias_gradients",
@@ -370,3 +370,4 @@ class LightFMMPIWrap:
         self._reduce_states_on_workers()
         # Update local models with common model states
         self._update_model_with_reduced_data()
+
