@@ -1,13 +1,10 @@
 import os
-import logging.config
-import time
 
 import mlflow
-import pandas as pd
 from pyspark.sql import SparkSession
 from replay.experiment import Experiment
 from replay.metrics import HitRate, MAP, NDCG
-from replay.model_handler import load, save
+from replay.model_handler import save
 from replay.session_handler import get_spark_session
 from replay.utils import (
     JobGroup,
@@ -31,11 +28,8 @@ from replay.models import (
 from replay.utils import logger
 
 # from rs_datasets import MovieLens, MillionSongDataset
-from pyspark.sql import functions as sf
 
-from replay.splitters import DateSplitter, UserSplitter
 from replay.utils import get_log_info2
-from replay.filters import filter_by_min_count, filter_out_low_ratings
 from pyspark.conf import SparkConf
 
 
@@ -148,6 +142,8 @@ def main(spark: SparkSession, dataset_name: str):
 
             # data = pd.read_csv(f"/opt/spark_data/replay_datasets/MillionSongDataset/train_{fraction}.csv")
 
+            partition_num = 48
+
             if partition_num in {6, 12, 24, 48}:
                 with log_exec_timer(
                     "Train/test datasets reading to parquet"
@@ -242,12 +238,36 @@ def main(spark: SparkSession, dataset_name: str):
             with log_exec_timer(
                     "Train/test/user_features datasets reading to parquet"
             ) as parquets_read_timer:
+                # train = spark.read.parquet(
+                #     "file:///opt/spark_data/replay/experiments/ml25m_first_level_default/train.parquet"
+                # )
+                # test = spark.read.parquet(
+                #     "file:///opt/spark_data/replay/experiments/ml25m_first_level_default/test.parquet"
+                # )
+
                 train = spark.read.parquet(
-                    "file:///opt/spark_data/replay/experiments/ml25m_first_level_default/train.parquet"
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml25m_train.parquet"
                 )
                 test = spark.read.parquet(
-                    "file:///opt/spark_data/replay/experiments/ml25m_first_level_default/test.parquet"
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/ml25m_test.parquet"
                 )
+
+                train = train.repartition(partition_num, "user_idx")
+                test = test.repartition(partition_num, "user_idx")
+            mlflow.log_metric(
+                "parquets_read_sec", parquets_read_timer.duration
+            )
+        elif dataset_name == "ml25m_0.5":
+            with log_exec_timer(
+                    "Train/test/user_features datasets reading to parquet"
+            ) as parquets_read_timer:
+                train = spark.read.parquet(
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/train_25m_0.5.parquet"
+                )
+                test = spark.read.parquet(
+                    "hdfs://node21.bdcl:9000/opt/spark_data/replay_datasets/test_25m_0.5.parquet"
+                )
+
                 train = train.repartition(partition_num, "user_idx")
                 test = test.repartition(partition_num, "user_idx")
             mlflow.log_metric(
@@ -531,14 +551,14 @@ def main(spark: SparkSession, dataset_name: str):
                 e.results.at[MODEL, "HitRate@{}".format(k)],
             )
 
-        # with log_exec_timer(f"Model saving") as model_save_timer:
-        #     save(
-        #         model,
-        #         path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}", # file://
-        #         overwrite=True
-        #     )
-        # mlflow.log_param("model_save_dir", f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}")
-        # mlflow.log_metric("model_save_sec", model_save_timer.duration)
+        with log_exec_timer(f"Model saving") as model_save_timer, JobGroup("Model Saving", "Model saving"):
+            save(
+                model,
+                path=f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}",
+                overwrite=True
+            )
+        mlflow.log_param("model_save_dir", f"/tmp/replay/{MODEL}_{dataset_name}_{spark.sparkContext.applicationId}")
+        mlflow.log_metric("model_save_sec", model_save_timer.duration)
 
         # with log_exec_timer(f"Model loading") as model_load_timer:
         #     # save_indexer(indexer, './indexer_ml1')

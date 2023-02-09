@@ -40,9 +40,11 @@ spec:
           - name: DATASET
 #            value: "MovieLens__10m"
 #            value: "ml25m"
-            value: "MillionSongDataset__1"
+#            value: "MillionSongDataset__1"
+            value: "ml25m_0.5"
           - name: MODEL
             value: "ItemKNN"
+#            value: "ALS_NMSLIB_HNSW"
           - name: USE_BUCKETING
             value: "False"
         volumeMounts:

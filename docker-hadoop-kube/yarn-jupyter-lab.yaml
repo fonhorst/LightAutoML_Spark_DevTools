@@ -150,11 +150,11 @@ spec:
         imagePullPolicy: Always
         resources:
           requests:
-            memory: "70Gi"
-            cpu: "8"
+            memory: "100Gi"
+            cpu: "30"
           limits:
-            memory: "70Gi"
-            cpu: "8"
+            memory: "100Gi"
+            cpu: "30"
         envFrom:
           - configMapRef:
               name: hadoop-env
