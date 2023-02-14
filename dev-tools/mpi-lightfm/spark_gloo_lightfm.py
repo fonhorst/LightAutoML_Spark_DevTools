@@ -3,29 +3,26 @@ from lightfm import LightFM
 from lightfm._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_warp
 from scipy import sparse
 import pyspark
-import pygloo
+import pygloo.dist.pygloo as pgl
 import itertools
 import typing as t
+import torch.distributed as dist
+from datetime import timedelta
 
 CYTHON_DTYPE = np.float32
-
 
 class LightFMGlooWrap:
     def __init__(
             self,
             model: LightFM,
-            filestore_path: str,
             use_spark: bool = True,
             world_size: t.Optional[int] = None,
-            # spark_context: pyspark.context.SparkContext = None,
     ) -> None:
         self.model = model
-        # self.spark_context = spark_context
         self.world_size = world_size
-        self.filestore_path = filestore_path
         self.use_spark = use_spark
         if self.use_spark and not self.world_size:
-            raise ValueError('For Spark usage, world size (number of Spark executors) must be defined.')
+            raise ValueError('For Spark usage, world_size (number of Spark executors) must be defined.')
 
     def fit(
             self,
@@ -74,8 +71,8 @@ class LightFMGlooWrap:
     def rdd_to_csr(self, partition_interactions: itertools.chain, num_users: int, num_items: int):
         user_ids, item_ids, relevance = [], [], []
         for row in partition_interactions:
-            user_ids.append(row.user_idx - 1)
-            item_ids.append(row.item_idx - 1)
+            user_ids.append(row.user_idx)
+            item_ids.append(row.item_idx)
             relevance.append(row.relevance)
 
         csr = sparse.csr_matrix(
@@ -83,15 +80,12 @@ class LightFMGlooWrap:
             shape=(num_users, num_items),
         )
         return csr
-        # raise NotImplementedError  # TODO no reindexing
 
     def get_num_users_and_items(self, interactions: pyspark.sql.dataframe.DataFrame):
         num_users = interactions.agg({"user_idx": "max"}).collect()[0][0]
         num_items = interactions.agg({"item_idx": "max"}).collect()[0][0]
-        # raise NotImplementedError  # TODO return (n_users + 1, n_items + 1) after todo above
-        return num_users, num_items
+        return num_users + 1, num_items + 1
 
-    # TODO: map in context
     def fit_partial(
             self,
             interactions,
@@ -103,7 +97,7 @@ class LightFMGlooWrap:
             verbose=False,
     ):
         if not self.use_spark:
-            print('Warning! No spark executors launched') # TODO
+            print('Warning! No spark executors launched') # TODO logging
             self.model.fit_partial(
                 interactions,
                 user_features,
@@ -114,9 +108,9 @@ class LightFMGlooWrap:
                 verbose,
             )
         else:
-            print('!! Spark executors launched')  # TODO
+            print('Spark executors launched')  # TODO
             n_users, n_items = self.get_num_users_and_items(interactions)
-            print(n_users, n_items)
+            # print(n_users, n_items)
             (user_features, item_features) = self.model._construct_feature_matrices(
                 n_users, n_items, user_features, item_features
             )
@@ -142,12 +136,17 @@ class LightFMGlooWrap:
                 raise ValueError("Number of threads must be 1 or larger.")
 
             def udf_to_map_on_interactions_with_index(p_idx, partition_interactions):
-
-                context = pygloo.rendezvous.Context(p_idx, self.world_size)
-                attr = pygloo.transport.tcp.attr("localhost") # TODO
-                dev = pygloo.transport.tcp.CreateDevice(attr)
-                fileStore = pygloo.rendezvous.FileStore(self.filestore_path)
-                store = pygloo.rendezvous.PrefixStore(str(self.world_size), fileStore)
+                context = pgl.rendezvous.Context(p_idx, self.world_size)
+                attr = pgl.transport.tcp.attr("localhost") # TODO
+                dev = pgl.transport.tcp.CreateDevice(attr)
+                real_store = dist.TCPStore(
+                        "localhost",
+                        1234,
+                        self.world_size,
+                        True if p_idx == 0 else False,
+                        timedelta(seconds=30)
+                    )
+                store = pgl.rendezvous.CustomStore(real_store)
                 context.connectFullMesh(store, dev)
                 self.gloo_context = context
 
@@ -201,7 +200,7 @@ class LightFMGlooWrap:
             # TODO: question
             #  is it ok to assign to self?
 
-        return self # TODO!
+        return self
 
     def _copy_represenations_for_update(self) -> None:
         """ Create local copy of the item and user representations. """
@@ -288,19 +287,18 @@ class LightFMGlooWrap:
             sendptr = sendbuf.ctypes.data
             recvptr = recvbuf.ctypes.data
             data_size = sendbuf.size if isinstance(sendbuf, np.ndarray) else sendbuf.numpy().size
-            datatype = pygloo.glooDataType_t.glooFloat32
+            datatype = pgl.glooDataType_t.glooFloat32
 
-            pygloo.allreduce(
+            pgl.allreduce(
                 self.gloo_context,
                 sendptr,
                 recvptr,
                 data_size,
                 datatype,
-                pygloo.ReduceOp.SUM,
-                pygloo.allreduceAlgorithm.RING
-            )  # TODO: test
-
-            self.__setattr__(attr_name, recvbuf,)
+                pgl.ReduceOp.SUM,
+                pgl.allreduceAlgorithm.RING
+            )
+            self.__setattr__(attr_name, recvbuf)
 
         for attr_name in average_attributes:
             attr_value = self.__getattribute__(attr_name)
@@ -369,7 +367,6 @@ class LightFMGlooWrap:
 
         # Get embeddings deltas before reduction
         self._get_update_delta_after_fit()
-
         # Perform AllReduce reduction on local states
         self._reduce_states_on_workers()
         # Update local models with common model states
