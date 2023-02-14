@@ -1,13 +1,14 @@
+import itertools
+import typing as t
+from datetime import timedelta
+
 import numpy as np
+import pygloo.dist.pygloo as pgl
+import pyspark
+import torch.distributed as dist
 from lightfm import LightFM
 from lightfm._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_warp
 from scipy import sparse
-import pyspark
-import pygloo.dist.pygloo as pgl
-import itertools
-import typing as t
-import torch.distributed as dist
-from datetime import timedelta
 
 CYTHON_DTYPE = np.float32
 
@@ -193,7 +194,7 @@ class LightFMGlooWrap:
                     self.model._check_finite()
 
                 if p_idx == 0:
-                    self.gloo_context = None  # TODO disconnect context (+ release resources)
+                    self.gloo_context = None  # TODO disconnect context 
                     yield self
 
             self = interactions.rdd.mapPartitionsWithIndex(udf_to_map_on_interactions_with_index).collect()[0]
