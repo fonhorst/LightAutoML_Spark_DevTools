@@ -54,6 +54,8 @@ spark-submit \
 --conf "spark.yarn.appMasterEnv.SEED=${CV}" \
 --conf "spark.yarn.appMasterEnv.PERSISTENCE_MANAGER=${PERSISTENCE_MANAGER}" \
 --conf "spark.yarn.appMasterEnv.BUCKET_NUMS=${BUCKET_NUMS}" \
+--conf "spark.yarn.appMasterEnv.LGB_NUM_TASKS=${LGB_NUM_TASKS}" \
+--conf "spark.yarn.appMasterEnv.LGB_NUM_THREADS=${LGB_NUM_THREADS}" \
 --conf "spark.yarn.tags=slama" \
 --conf "spark.kryoserializer.buffer.max=512m" \
 --conf "spark.driver.cores=${DRIVER_CORES}" \
