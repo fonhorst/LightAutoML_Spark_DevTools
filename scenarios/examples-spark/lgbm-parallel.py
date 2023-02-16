@@ -7,7 +7,7 @@ from multiprocessing.pool import ThreadPool
 from typing import Tuple, List, Dict, Any
 
 # noinspection PyUnresolvedReferences
-from pyspark import inheritable_thread_target
+from pyspark import inheritable_thread_target, SparkContext
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
@@ -21,6 +21,10 @@ from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.transformers.scala_wrappers.balanced_union_partitions_coalescer import \
     BalancedUnionPartitionsCoalescerTransformer
 from sparklightautoml.utils import log_exec_timer
+from pyspark import keyword_only
+from pyspark.ml.common import inherit_doc
+from pyspark.ml.wrapper import JavaTransformer
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +44,25 @@ params = {
     'objective': 'binary',
     'metric': 'auc'
 }
+
+
+@inherit_doc
+class PrefferedLocsPartitionCoalescerTransformer(JavaTransformer):
+    """
+    Custom implementation of PySpark BalancedUnionPartitionsCoalescerTransformer wrapper
+    """
+
+    @keyword_only
+    def __init__(self, pref_locs: List[str]):
+        super(PrefferedLocsPartitionCoalescerTransformer, self).__init__()
+        self._java_obj = self._new_java_obj(
+            "org.apache.spark.lightautoml.utils.PrefferedLocsPartitionCoalescerTransformer", self.uid, pref_locs
+        )
+
+
+def executors() -> List[str]:
+    sc = SparkContext._active_spark_context
+    return sc._jvm.org.apache.spark.lightautoml.utils.SomeFunctions.executors()
 
 
 class ParallelExperiment:
