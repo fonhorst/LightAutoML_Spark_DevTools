@@ -38,11 +38,11 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "3"
+            value: "6"
           - name: EXECUTOR_CORES
             value: "2"
           - name: LGB_NUM_TASKS
-            value: "3"
+            value: "4"
           - name: LGB_NUM_THREADS
             value: "1"
           - name: LOG_FILES_TO_MLFLOW

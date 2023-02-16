@@ -77,6 +77,8 @@ class ParallelExperiment:
         self.test_path = os.path.join(self.base_dataset_path, "test.parquet")
         self.metadata_path = os.path.join(self.base_dataset_path, "metadata.pickle")
 
+        self._executors = list(executors())
+
     def prepare_dataset(self, force=True):
         logger.info(f"Preparing dataset {self.dataset_name}. "
                     f"Writing train, test and metadata to {self.base_dataset_path}")
@@ -204,7 +206,7 @@ class ParallelExperiment:
             chunkSize=4_000_000,
             useBarrierExecutionMode=True,
             numTasks=self.lgb_num_tasks,
-            numThreads=self.lgb_num_threads
+            # numThreads=self.lgb_num_threads
         )
 
         if task_type == "reg":
@@ -217,8 +219,11 @@ class ParallelExperiment:
         full_data = valid_df.unionByName(train_df)
         full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
 
-        full_data = full_data.repartition(self.lgb_num_tasks).cache()
-        full_data.count()
+        # TODO: lgb num tasks should be equal to num cores
+        pref_locs = self._executors[fold * 2: fold * 2 + 2]
+        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+
+        print(f"Pref lcos for fold {fold}: {pref_locs}")
 
         transformer = lgbm.fit(assembler.transform(full_data))
         preds_df = transformer.transform(assembler.transform(test_df))
