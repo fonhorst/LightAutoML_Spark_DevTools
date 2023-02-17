@@ -65,7 +65,10 @@ params = {
 # by forcing no other parallel workload when parallel lightgbms is submitted for execution.
 # (What to do with treeAggregating in parallel instance of lightgbm,
 # that can potentially ruin allocations of next instances in the queue?
-# if it is just test, than send them trough the same PrefferedLocsTransformer)
+# if it is just test, than send them trough the same PrefferedLocsTransformer).
+# Also, preparation step that moves and caches data may be required to get rid of this problem.
+# We intentially pre-move dataset copies and caches onto nodes in the correspondence
+# with future instances allocation and only after that we start computations
 #
 # Note: p.2 and 3 may be solved by tweaking internals of lgbm itself
 # (using wrapper that can redefine its behaviour in such situations).
@@ -86,24 +89,24 @@ params = {
 #       UseSingleDatasetMode=True, num_tasks=num_executors, barrier=True, num_threads=1
 #       max_parallelism == num_cores_per_executor
 #
-#       Note: can be harmed by p.1, 3
-#       Pros: better performance than 1
+#       Cons: can be harmed by p.1, 3
+#       Pros: better performance than 1; NO need to move data
 #
 #   3. Several tasks per executor
 #       UseSingleDatasetMode=True, num_tasks=num_executors * num_cores, barrier=True, num_threads=num_cores
 #       num_cores = <defined by user>
 #       max_parallelism == math.floor(num_cores_per_executor / num_cores)
 #
-#       Note: can be harmed by p.1, 2, 3
-#       Pros: potentially better performance than 1, 2, 4
+#       Cons: can be harmed by p.1, 2, 3
+#       Pros: potentially better performance than 1, 2, 4; NO need to move data
 #
 #   4. One task per subset of executors
 #       UseSingleDatasetMode=True, num_tasks=custom_num_tasks, barrier=True, num_threads=1
 #       custom_num_tasks = <defined by user>, custom_num_tasks < num_executors
 #       max_parallelism = math.floor(all_cores / custom_num_tasks)
-#       Pros: better performance than 1
 #
-#       Note: can be harmed by p.1, 3
+#       Cons: can be harmed by p.1, 3; need to move data
+#       Pros: better performance than 1
 #
 #   5. One lgbm instance per executors subset
 #       UseSingleDatasetMode=True, num_tasks=num_execs_per_instance * num_cores_per_executor,
@@ -111,7 +114,7 @@ params = {
 #       num_execs_per_instance = <defined by user>
 #       max_parallelism = math.floor(num_executors / num_execs_per_instance)
 #
-#       Note: can be harmed by p.1, 2, 3
+#       Cons: can be harmed by p.1, 2, 3; need to move data
 #       Pros: potentially better performance than 1, 2, 3, 4
 
 
