@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import shutil
+from enum import Enum
 from multiprocessing.pool import ThreadPool
 from typing import Tuple, List, Dict, Any
 
@@ -44,6 +45,34 @@ params = {
     'objective': 'binary',
     'metric': 'auc'
 }
+# num_executors = <defined by app>
+# num_cores_per_executor = <defined by app>
+# all_cores = num_executors * num_cores_per_executor
+#
+# max_parallelism = <defined by user> and <upper limit capped by other settings>
+#
+# Parallel modes for lgbm:
+#   1. Simple
+#       UseSingleDatasetMode=False, num_tasks=math.ceil(all_cores / max_parallelism), barrier=True, num_threads=1
+#
+#   2. One task per executor
+#       UseSingleDatasetMode=True, num_tasks=num_executors, barrier=True, num_threads=1
+#       max_parallelism == num_cores_per_executor
+#
+#   3. Several tasks per executor
+#       UseSingleDatasetMode=True, num_tasks=num_executors * num_cores, barrier=True, num_threads=num_cores
+#       max_parallelism == math.floor(num_cores_per_executor / num_cores)
+#
+#   4. One task per subset of executors
+#       UseSingleDatasetMode=True, num_tasks=custom_num_tasks, barrier=True, num_threads=1
+#       custom_num_tasks = <defined by user>, custom_num_tasks < num_executors
+#       max_parallelism = math.floor(all_cores / custom_num_tasks)
+#
+#   5. One lgbm instance per executors subset
+#       UseSingleDatasetMode=True, num_tasks=num_execs_per_instance * num_cores_per_executor,
+#           barrier=True, num_threads=num_cores_per_executor
+#       num_execs_per_instance = <defined by user>
+#       max_parallelism = math.floor(num_executors / num_execs_per_instance)
 
 
 @inherit_doc
@@ -66,7 +95,7 @@ def executors() -> List[str]:
 
 
 class ParallelExperiment:
-    def __init__(self, spark: SparkSession, dataset_name: str, lgb_num_tasks: int, lgb_num_threads:int):
+    def __init__(self, spark: SparkSession, dataset_name: str, lgb_num_tasks: int, lgb_num_threads: int):
         self.spark = spark
         self.dataset_name = dataset_name
         self.lgb_num_tasks = lgb_num_tasks
@@ -222,7 +251,6 @@ class ParallelExperiment:
         # TODO: lgb num tasks should be equal to num cores
         pref_locs = self._executors[fold * 2: fold * 2 + 2]
         full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
-
         print(f"Pref lcos for fold {fold}: {pref_locs}")
 
         transformer = lgbm.fit(assembler.transform(full_data))
