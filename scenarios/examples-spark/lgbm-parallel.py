@@ -45,6 +45,33 @@ params = {
     'objective': 'binary',
     'metric': 'auc'
 }
+
+# Problems:
+# 1. Third-party concurrent workload may occupy cores on desired locations,
+#   that will lead to not completely equal amount of computational resources to lgbm workers
+#
+# 2. Other workload may occupy cores used by lgbm threads
+#   (because lightgbm letted them go free while still calculating with the main task)
+#
+# 3. Other workload may be harmed by cores overcommit due to incorrect threads num when not enough cores
+#   allocated per executor for an lgbm worker (for instance, we asked for 3 cores per exec in an app
+#   with 6 cores executors and ends up wuth allocating only 1 core per some executor,
+#   but we will still be using 3 threads. The vice versa is also possible: 3 threads is in the settings,
+#   while we ends up with 5 cores allocated per some executor)
+#
+# 4. Running lgbm workload without barrier may lead to softlock
+#
+# Note: p.1 (and p.2, 3 too) can be alleviated by controlling what can be executed in parallel
+# by forcing no other parallel workload when parallel lightgbms is submitted for execution.
+# (What to do with treeAggregating in parallel instance of lightgbm,
+# that can potentially ruin allocations of next instances in the queue?
+# if it is just test, than send them trough the same PrefferedLocsTransformer)
+#
+# Note: p.2 and 3 may be solved by tweaking internals of lgbm itself
+# (using wrapper that can redefine its behaviour in such situations).
+# Also, it can be at least partially controlled by external service that performs workload alignment
+# and prevent overcommitting "manually".
+#
 # num_executors = <defined by app>
 # num_cores_per_executor = <defined by app>
 # all_cores = num_executors * num_cores_per_executor
@@ -59,20 +86,33 @@ params = {
 #       UseSingleDatasetMode=True, num_tasks=num_executors, barrier=True, num_threads=1
 #       max_parallelism == num_cores_per_executor
 #
+#       Note: can be harmed by p.1, 3
+#       Pros: better performance than 1
+#
 #   3. Several tasks per executor
 #       UseSingleDatasetMode=True, num_tasks=num_executors * num_cores, barrier=True, num_threads=num_cores
+#       num_cores = <defined by user>
 #       max_parallelism == math.floor(num_cores_per_executor / num_cores)
+#
+#       Note: can be harmed by p.1, 2, 3
+#       Pros: potentially better performance than 1, 2, 4
 #
 #   4. One task per subset of executors
 #       UseSingleDatasetMode=True, num_tasks=custom_num_tasks, barrier=True, num_threads=1
 #       custom_num_tasks = <defined by user>, custom_num_tasks < num_executors
 #       max_parallelism = math.floor(all_cores / custom_num_tasks)
+#       Pros: better performance than 1
+#
+#       Note: can be harmed by p.1, 3
 #
 #   5. One lgbm instance per executors subset
 #       UseSingleDatasetMode=True, num_tasks=num_execs_per_instance * num_cores_per_executor,
 #           barrier=True, num_threads=num_cores_per_executor
 #       num_execs_per_instance = <defined by user>
 #       max_parallelism = math.floor(num_executors / num_execs_per_instance)
+#
+#       Note: can be harmed by p.1, 2, 3
+#       Pros: potentially better performance than 1, 2, 3, 4
 
 
 @inherit_doc
