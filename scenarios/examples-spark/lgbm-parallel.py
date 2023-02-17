@@ -68,7 +68,7 @@ params = {
 # if it is just test, than send them trough the same PrefferedLocsTransformer).
 # Also, preparation step that moves and caches data may be required to get rid of this problem.
 # We intentially pre-move dataset copies and caches onto nodes in the correspondence
-# with future instances allocation and only after that we start computations
+# with future instances allocation and only after that we start computations. (It is actual for pre-start action of lightgbm)
 #
 # Note: p.2 and 3 may be solved by tweaking internals of lgbm itself
 # (using wrapper that can redefine its behaviour in such situations).
