@@ -68,12 +68,19 @@ params = {
 # if it is just test, than send them trough the same PrefferedLocsTransformer).
 # Also, preparation step that moves and caches data may be required to get rid of this problem.
 # We intentially pre-move dataset copies and caches onto nodes in the correspondence
-# with future instances allocation and only after that we start computations. (It is actual for pre-start action of lightgbm)
+# with future instances allocation and only after that we start computations.
+# (It is actual for pre-start action of lightgbm)
+#
+# Note: in case of failures or switching number of executors,
+# The performance may be decreased due to unaligned allocation of workers, but still will be continued.
+# Potential solution here may be based on constant monitoring in changes of spark app executors
+# and realigning allocations on the fly.
 #
 # Note: p.2 and 3 may be solved by tweaking internals of lgbm itself
 # (using wrapper that can redefine its behaviour in such situations).
 # Also, it can be at least partially controlled by external service that performs workload alignment
 # and prevent overcommitting "manually".
+#
 #
 # num_executors = <defined by app>
 # num_cores_per_executor = <defined by app>
