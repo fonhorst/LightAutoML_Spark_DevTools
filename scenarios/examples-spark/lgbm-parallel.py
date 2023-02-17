@@ -67,9 +67,12 @@ params = {
 # that can potentially ruin allocations of next instances in the queue?
 # if it is just test, than send them trough the same PrefferedLocsTransformer).
 # Also, preparation step that moves and caches data may be required to get rid of this problem.
-# We intentially pre-move dataset copies and caches onto nodes in the correspondence
+# We intentialy pre-move dataset copies and caches onto nodes in the correspondence
 # with future instances allocation and only after that we start computations.
 # (It is actual for pre-start action of lightgbm)
+# There is a one alternative to the pre-moving. We may set 'shuffle=false' for the ds.rdd.coalesce(...)
+# and than redefine the logic of 'PrefferedLocsPartitionCoalescer' to combine partitions by ourselves in order
+# to avoid shuffle stage that forces to add additional tasks for data redistributing (need to test this hypothesis).
 #
 # Note: in case of failures or switching number of executors,
 # The performance may be decreased due to unaligned allocation of workers, but still will be continued.
