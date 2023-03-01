@@ -162,7 +162,7 @@ class ParallelExperiment:
 
         self._executors = list(executors())
 
-        self._fold2train: Dict[int, DataFrame] = dict()
+        self._fold2train: Dict[int, Tuple[DataFrame, List[str]]] = dict()
 
     def prepare_trains(self, max_job_parallelism: int):
         train_df = self.train_dataset
@@ -185,7 +185,7 @@ class ParallelExperiment:
             train_df = train_df.cache()
             train_df.write.mode('overwrite').format('noop').save()
 
-            self._fold2train[fold] = train_df
+            self._fold2train[fold] = (train_df, pref_locs)
 
             print(f"Pref lcos for fold {fold}: {pref_locs}")
 
@@ -196,7 +196,7 @@ class ParallelExperiment:
 
         print(f"Pref lcos for fold {fold}: {pref_locs}")
 
-    def get_train(self, fold: int) -> DataFrame:
+    def get_train(self, fold: int) -> Tuple[DataFrame, List[str]]:
         return self._fold2train[fold]
 
     def prepare_dataset(self, force=True):
@@ -350,16 +350,17 @@ class ParallelExperiment:
         # pref_locs = self._executors[fold * 2: fold * 2 + 2]
         # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
         # print(f"Pref lcos for fold {fold}: {pref_locs}")
-        train_df = self.get_train(fold)
+        train_df, pref_locs = self.get_train(fold)
 
-        # train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
-        #
-        # valid_df = train_df.where('is_val')
-        # train_df = train_df.where(~sf.col('is_val'))
-        # full_data = valid_df.unionByName(train_df)
-        # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
+        train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+        valid_df = train_df.where('is_val')
+        train_df = train_df.where(~sf.col('is_val'))
+        full_data = valid_df.unionByName(train_df)
+        full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
 
-        full_data = train_df
+        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+
+        # full_data = train_df
 
         # TODO: lgb num tasks should be equal to num cores
         # fld = fold % 3# max_job_parallelism
