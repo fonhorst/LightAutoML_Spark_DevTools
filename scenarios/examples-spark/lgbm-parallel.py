@@ -170,25 +170,29 @@ class ParallelExperiment:
         max_fold = train_df.select(sf.max('reader_fold_num').alias('max_fold')).first()['max_fold']
 
         for fold in range(max_fold + 1):
-            train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+            fld = fold % max_job_parallelism
+            pref_locs = self._executors[fld * 2: fld * 2 + 2]
+            train_df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(train_df)
 
-            valid_df = train_df.where('is_val')
-            train_df = train_df.where(~sf.col('is_val'))
-            full_data = valid_df.unionByName(train_df)
-            full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
+            # train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+            #
+            # valid_df = train_df.where('is_val')
+            # train_df = train_df.where(~sf.col('is_val'))
+            # full_data = valid_df.unionByName(train_df)
+            # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
 
 
-            full_data = full_data.cache()
-            full_data.write.mode('overwrite').format('noop').save()
+            train_df = train_df.cache()
+            train_df.write.mode('overwrite').format('noop').save()
 
-            self._fold2train[fold] = full_data
+            self._fold2train[fold] = train_df
+
+            print(f"Pref lcos for fold {fold}: {pref_locs}")
 
         # check if it is possible to overcome the limitation by spark's ability existing shuffle files
         # not sure if it works
         # # TODO: lgb num tasks should be equal to num cores
-        # fld = 0 % max_job_parallelism
-        # pref_locs = self._executors[fld * 2: fld * 2 + 2]
-        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+
 
         print(f"Pref lcos for fold {fold}: {pref_locs}")
 
@@ -322,7 +326,7 @@ class ParallelExperiment:
             **params,
             featuresCol=assembler.getOutputCol(),
             labelCol=md['target'],
-            validationIndicatorCol='is_val',
+            # validationIndicatorCol='is_val',
             verbosity=1,
             useSingleDatasetMode=True,
             isProvideTrainingMetric=True,
@@ -346,14 +350,23 @@ class ParallelExperiment:
         # pref_locs = self._executors[fold * 2: fold * 2 + 2]
         # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
         # print(f"Pref lcos for fold {fold}: {pref_locs}")
-        full_data = self.get_train(fold)
+        train_df = self.get_train(fold)
+
+        # train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+        #
+        # valid_df = train_df.where('is_val')
+        # train_df = train_df.where(~sf.col('is_val'))
+        # full_data = valid_df.unionByName(train_df)
+        # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
+
+        full_data = train_df
 
         # TODO: lgb num tasks should be equal to num cores
-        fld = fold % 3# max_job_parallelism
-        pref_locs = self._executors[fld * 2: fld * 2 + 2]
-        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
-
-        print(f"Pref lcos for fold {fold}: {pref_locs}")
+        # fld = fold % 3# max_job_parallelism
+        # pref_locs = self._executors[fld * 2: fld * 2 + 2]
+        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+        #
+        # print(f"Pref lcos for fold {fold}: {pref_locs}")
 
         transformer = lgbm.fit(assembler.transform(full_data))
         preds_df = transformer.transform(assembler.transform(test_df))
