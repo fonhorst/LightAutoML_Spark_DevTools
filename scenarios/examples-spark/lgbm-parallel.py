@@ -177,17 +177,20 @@ class ParallelExperiment:
             full_data = valid_df.unionByName(train_df)
             full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
 
-            # TODO: lgb num tasks should be equal to num cores
-            fld = fold % max_job_parallelism
-            pref_locs = self._executors[fld * 2: fld * 2 + 2]
-            full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
 
             full_data = full_data.cache()
             full_data.write.mode('overwrite').format('noop').save()
 
-            print(f"Pref lcos for fold {fold}: {pref_locs}")
-
             self._fold2train[fold] = full_data
+
+        # check if it is possible to overcome the limitation by spark's ability existing shuffle files
+        # not sure if it works
+        # # TODO: lgb num tasks should be equal to num cores
+        # fld = 0 % max_job_parallelism
+        # pref_locs = self._executors[fld * 2: fld * 2 + 2]
+        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+
+        print(f"Pref lcos for fold {fold}: {pref_locs}")
 
     def get_train(self, fold: int) -> DataFrame:
         return self._fold2train[fold]
@@ -344,6 +347,13 @@ class ParallelExperiment:
         # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
         # print(f"Pref lcos for fold {fold}: {pref_locs}")
         full_data = self.get_train(fold)
+
+        # TODO: lgb num tasks should be equal to num cores
+        fld = fold % 3# max_job_parallelism
+        pref_locs = self._executors[fld * 2: fld * 2 + 2]
+        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+
+        print(f"Pref lcos for fold {fold}: {pref_locs}")
 
         transformer = lgbm.fit(assembler.transform(full_data))
         preds_df = transformer.transform(assembler.transform(test_df))
