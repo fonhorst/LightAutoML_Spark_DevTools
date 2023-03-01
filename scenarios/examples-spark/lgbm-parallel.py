@@ -136,10 +136,11 @@ class PrefferedLocsPartitionCoalescerTransformer(JavaTransformer):
     """
 
     @keyword_only
-    def __init__(self, pref_locs: List[str]):
+    def __init__(self, pref_locs: List[str], do_shuffle: bool = True):
         super(PrefferedLocsPartitionCoalescerTransformer, self).__init__()
         self._java_obj = self._new_java_obj(
-            "org.apache.spark.lightautoml.utils.PrefferedLocsPartitionCoalescerTransformer", self.uid, pref_locs
+            "org.apache.spark.lightautoml.utils.PrefferedLocsPartitionCoalescerTransformer",
+            self.uid, pref_locs, do_shuffle
         )
 
 
@@ -358,7 +359,9 @@ class ParallelExperiment:
         full_data = valid_df.unionByName(train_df)
         full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
 
-        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+        # won't work without do_shuffle=True, that means we should move train_df + valid_df merging somewhere upstream
+        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs,
+        #                                                        do_shuffle=True).transform(full_data)
 
         # full_data = train_df
 
@@ -414,6 +417,8 @@ class ParallelExperiment:
 def main():
     partitions_num = 6
     spark = get_spark_session(partitions_num=partitions_num)
+
+    # PrefferedLocsPartitionCoalescerTransformer(pref_locs=["1", "2"])
 
     exp = ParallelExperiment(
         spark,
