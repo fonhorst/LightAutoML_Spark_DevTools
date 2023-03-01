@@ -4,6 +4,7 @@ import os
 import pickle
 import shutil
 from enum import Enum
+from functools import lru_cache
 from multiprocessing.pool import ThreadPool
 from typing import Tuple, List, Dict, Any
 
@@ -161,17 +162,47 @@ class ParallelExperiment:
 
         self._executors = list(executors())
 
+        self._fold2train: Dict[int, DataFrame] = dict()
+
+    def prepare_trains(self, max_job_parallelism: int):
+        train_df = self.train_dataset
+
+        max_fold = train_df.select(sf.max('reader_fold_num').alias('max_fold')).first()['max_fold']
+
+        for fold in range(max_fold + 1):
+            train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+
+            valid_df = train_df.where('is_val')
+            train_df = train_df.where(~sf.col('is_val'))
+            full_data = valid_df.unionByName(train_df)
+            full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
+
+            # TODO: lgb num tasks should be equal to num cores
+            fld = fold % max_job_parallelism
+            pref_locs = self._executors[fld * 2: fld * 2 + 2]
+            full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+
+            full_data = full_data.cache()
+            full_data.write.mode('overwrite').format('noop').save()
+
+            print(f"Pref lcos for fold {fold}: {pref_locs}")
+
+            self._fold2train[fold] = full_data
+
+    def get_train(self, fold: int) -> DataFrame:
+        return self._fold2train[fold]
+
     def prepare_dataset(self, force=True):
         logger.info(f"Preparing dataset {self.dataset_name}. "
                     f"Writing train, test and metadata to {self.base_dataset_path}")
 
-        if os.path.exists(self.base_dataset_path) and not force:
-            logger.info(f"Found existing {self.base_dataset_path}. Skipping writing dataset files")
-            return
-        elif os.path.exists(self.base_dataset_path):
-            logger.info(f"Found existing {self.base_dataset_path}. "
-                        f"Removing existing files because force is set to True")
-            shutil.rmtree(self.base_dataset_path)
+        # if os.path.exists(self.base_dataset_path) and not force:
+        #     logger.info(f"Found existing {self.base_dataset_path}. Skipping writing dataset files")
+        #     return
+        # elif os.path.exists(self.base_dataset_path):
+        #     logger.info(f"Found existing {self.base_dataset_path}. "
+        #                 f"Removing existing files because force is set to True")
+        #     shutil.rmtree(self.base_dataset_path)
 
         seed = 42
         cv = 5
@@ -192,10 +223,13 @@ class ParallelExperiment:
         test_sdataset = sreader.read(test_df, add_array_attrs=True)
         test_sdataset = spark_features_pipeline.transform(test_sdataset)
 
-        os.makedirs(self.base_dataset_path)
+        # os.makedirs(self.base_dataset_path)
 
-        train_sdataset.data.write.parquet("file://" + self.train_path)
-        test_sdataset.data.write.parquet("file://" + self.test_path)
+        # train_sdataset.data.write.parquet("file://" + self.train_path)
+        # test_sdataset.data.write.parquet("file://" + self.test_path)
+
+        train_sdataset.data.write.parquet(self.train_path, mode='overwrite')
+        test_sdataset.data.write.parquet(self.test_path, mode='overwrite')
 
         metadata = {
             "roles": train_sdataset.roles,
@@ -209,18 +243,22 @@ class ParallelExperiment:
         logger.info(f"Dataset {self.dataset_name} has been prepared.")
 
     @property
+    @lru_cache
     def train_dataset(self) -> DataFrame:
         exec_instances = int(self.spark.conf.get("spark.executor.instances"))
         cores_per_exec = int(self.spark.conf.get("spark.executor.cores"))
-        df = self.spark.read.parquet("file://" + self.train_path).repartition(exec_instances * cores_per_exec).cache()
+        # df = self.spark.read.parquet("file://" + self.train_path).repartition(exec_instances * cores_per_exec).cache()
+        df = self.spark.read.parquet(self.train_path).repartition(exec_instances * cores_per_exec).cache()
         df.count()
         return df
 
     @property
+    @lru_cache
     def test_dataset(self) -> DataFrame:
         exec_instances = int(self.spark.conf.get("spark.executor.instances"))
         cores_per_exec = int(self.spark.conf.get("spark.executor.cores"))
-        df = self.spark.read.parquet("file://" + self.test_path).repartition(exec_instances * cores_per_exec).cache()
+        # df = self.spark.read.parquet("file://" + self.test_path).repartition(exec_instances * cores_per_exec).cache()
+        df = self.spark.read.parquet(self.test_path).repartition(exec_instances * cores_per_exec).cache()
         df.count()
         return df
 
@@ -232,12 +270,12 @@ class ParallelExperiment:
     def train_model(self, fold: int) -> Tuple[int, float]:
         logger.info(f"Starting to train the model for fold #{fold}")
 
-        train_df = self.train_dataset
+        # train_df = self.train_dataset
         test_df = self.test_dataset
         md = self.metadata
         task_type = md["task_type"]
 
-        train_df.sql_ctx.sparkSession.sparkContext.setLocalProperty("spark.scheduler.mode", "FAIR")
+        test_df.sql_ctx.sparkSession.sparkContext.setLocalProperty("spark.scheduler.mode", "FAIR")
         # train_df.sql_ctx.sparkSession.sparkContext.setLocalProperty("spark.task.cpus", "6")
 
         prediction_col = 'LightGBM_prediction_0'
@@ -294,35 +332,37 @@ class ParallelExperiment:
         if task_type == "reg":
             lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
 
-        train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
-
-        valid_df = train_df.where('is_val')
-        train_df = train_df.where(~sf.col('is_val'))
-        full_data = valid_df.unionByName(train_df)
-        full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
-
-        # TODO: lgb num tasks should be equal to num cores
-        pref_locs = self._executors[fold * 2: fold * 2 + 2]
-        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
-        print(f"Pref lcos for fold {fold}: {pref_locs}")
+        # train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+        #
+        # valid_df = train_df.where('is_val')
+        # train_df = train_df.where(~sf.col('is_val'))
+        # full_data = valid_df.unionByName(train_df)
+        # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
+        #
+        # # TODO: lgb num tasks should be equal to num cores
+        # pref_locs = self._executors[fold * 2: fold * 2 + 2]
+        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
+        # print(f"Pref lcos for fold {fold}: {pref_locs}")
+        full_data = self.get_train(fold)
 
         transformer = lgbm.fit(assembler.transform(full_data))
         preds_df = transformer.transform(assembler.transform(test_df))
 
         print(f"Props #{fold}: {full_data.sql_ctx.sparkSession.sparkContext.getLocalProperty('spark.task.cpus')}")
 
-        score = SparkTask(task_type).get_dataset_metric()
-        metric_value = score(
-            preds_df.select(
-                SparkDataset.ID_COLUMN,
-                sf.col(md['target']).alias('target'),
-                sf.col(prediction_col).alias('prediction')
-            )
-        )
+        # score = SparkTask(task_type).get_dataset_metric()
+        # metric_value = score(
+        #     preds_df.select(
+        #         SparkDataset.ID_COLUMN,
+        #         sf.col(md['target']).alias('target'),
+        #         sf.col(prediction_col).alias('prediction')
+        #     )
+        # )
 
         logger.info(f"Finished training the model for fold #{fold}")
 
-        return fold, metric_value
+        # return fold, metric_value
+        return fold, -1.0
 
     def run(self, max_job_parallelism: int = 3) -> List[Tuple[int, float]]:
         with log_exec_timer("Parallel experiment runtime"):
@@ -333,8 +373,10 @@ class ParallelExperiment:
                     self.train_model,
                     fold
                 )
-                for fold in range(3)
+                for fold in range(4)
             ]
+
+            self.prepare_trains(max_job_parallelism)
 
             pool = ThreadPool(processes=max_job_parallelism)
             tasks = map(inheritable_thread_target, tasks)
