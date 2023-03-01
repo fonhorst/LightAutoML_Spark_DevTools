@@ -1,3 +1,4 @@
+# available image tags: slama-yarn-java-11, slama-yarn-java-11-bookworm-20230227
 ---
 apiVersion: v1
 kind: ConfigMap

@@ -1,7 +1,7 @@
 ARG IMAGE_TAG=slama-yarn
 FROM node2.bdcl:5000/yarn-base:${IMAGE_TAG}
 
-MAINTAINER Ivan Ermilov <ivan.s.ermilov@gmail.com>
+#MAINTAINER Ivan Ermilov <ivan.s.ermilov@gmail.com>
 
 HEALTHCHECK CMD curl -f http://localhost:8188/ || exit 1
 

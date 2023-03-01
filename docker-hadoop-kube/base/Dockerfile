@@ -1,19 +1,48 @@
-FROM debian:10
+ARG BASE_IMAGE_TAG=10
+FROM debian:${BASE_IMAGE_TAG}
 
-MAINTAINER Ivan Ermilov <ivan.s.ermilov@gmail.com>
-MAINTAINER Giannis Mouchakis <gmouchakis@iit.demokritos.gr>
+#MAINTAINER Ivan Ermilov <ivan.s.ermilov@gmail.com>
+#MAINTAINER Giannis Mouchakis <gmouchakis@iit.demokritos.gr>
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      openjdk-11-jdk \
-      net-tools \
-      curl \
-      netcat \
-      gnupg \
-      libsnappy-dev \
+#RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+#      ca-certificates \
+#      net-tools \
+#      curl \
+#      wget \
+#      gnupg \
+#      libsnappy-dev \
+#    && rm -rf /var/lib/apt/lists/*
+
+# installing common dependencies
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive  apt-get install -y --no-install-recommends \
+    coreutils ca-certificates build-essential net-tools \
+    curl wget gnupg nano\
+    gcc g++ gdb lcov pkg-config libbz2-dev \
+    libffi-dev libgdbm-dev libgdbm-compat-dev liblzma-dev \
+    libncurses-dev libreadline6-dev libsqlite3-dev libssl-dev \
+    lzma lzma-dev tk-dev uuid-dev zlib1g-dev libsnappy-dev  \
     && rm -rf /var/lib/apt/lists/*
-      
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64/
 
+# installing java
+RUN wget https://download.java.net/openjdk/jdk11/ri/openjdk-11+28_linux-x64_bin.tar.gz
+
+RUN tar -xvf openjdk-11+28_linux-x64_bin.tar.gz
+
+RUN mv jdk-11 /usr/local/lib/jdk-11
+
+RUN ln -s /usr/local/lib/jdk-11/bin/java /usr/local/bin/java
+      
+ENV JAVA_HOME=/usr/local/lib/jdk-11/
+
+# installing python
+ARG PYTHON_VERSION=3.9.16
+
+RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz \
+    && tar -xzvf Python-${PYTHON_VERSION}.tgz
+
+RUN cd Python-${PYTHON_VERSION} && ./configure --prefix=/usr/local && make && make install
+
+# installing hadoop
 RUN curl -O https://dist.apache.org/repos/dist/release/hadoop/common/KEYS
 
 RUN gpg --import KEYS

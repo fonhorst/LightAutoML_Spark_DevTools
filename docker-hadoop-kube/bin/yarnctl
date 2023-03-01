@@ -12,13 +12,19 @@ then
   REPO="node2.bdcl:5000"
 fi
 
+if [[ -z "${BASE_IMAGE_TAG}" ]]
+then
+  BASE_IMAGE_TAG="10"
+fi
+
+
 if [[ -z "${IMAGE_TAG}" ]]
 then
-  IMAGE_TAG="slama-yarn"
+  IMAGE_TAG="slama-yarn-java-11-${BASE_IMAGE_TAG}"
 fi
 
 ## declare an array variable
-declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "spark-submit" "jupyter-lab")
+declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "jupyter-lab")
 
 function obtain_requirements() {
   echo "Obtaining requirements files"
@@ -47,7 +53,8 @@ function build_images() {
     do
         image="${REPO}/yarn-${comp}:${IMAGE_TAG}"
         echo "Building docker image: ${image}"
-        docker build --build-arg IMAGE_TAG=${IMAGE_TAG} -t "${image}" "${comp}"
+        docker build --build-arg IMAGE_TAG=${IMAGE_TAG} --build-arg BASE_IMAGE_TAG=${BASE_IMAGE_TAG} \
+          -t "${image}" "${comp}"
     done
 
     # TODO: add building
