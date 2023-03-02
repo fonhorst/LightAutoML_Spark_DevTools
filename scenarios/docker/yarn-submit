@@ -14,7 +14,8 @@ fi
 
 SCRIPT="$1"
 
-PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/Python-3.9.12/bin/python3.9"}
+#PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/Python-3.9.12/bin/python3.9"}
+PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/.replay_venv/bin/python3.9"}
 LOG_TO_MLFLOW=${LOG_TO_MLFLOW:-"1"}
 LOG_FILES_TO_MLFLOW=${LOG_FILES_TO_MLFLOW:-"0"}
 DATASET=${DATASET:-"lama_test_dataset"}

@@ -24,7 +24,7 @@ then
 fi
 
 ## declare an array variable
-declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "jupyter-lab")
+declare -a components=("base" "historyserver" "nodemanager" "resourcemanager" "jupyter-lab" "spark-history-server")
 
 function obtain_requirements() {
   echo "Obtaining requirements files"

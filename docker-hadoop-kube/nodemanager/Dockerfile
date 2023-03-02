@@ -8,6 +8,12 @@ RUN chmod a+x /run.sh
 
 EXPOSE 8042
 
+RUN apt-get update && apt install -y lsb-release wget software-properties-common gnupg
+
+RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+
+RUN apt-get update && apt-get install -y clang python3-clang libomp-dev
+
 #RUN apt update
 
 #RUN apt install build-essential libncurses5-dev zlib1g-dev libnss3-dev libgdbm-dev libssl-dev libsqlite3-dev libffi-dev libreadline-dev curl libbz2-dev wget -y
