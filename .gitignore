@@ -143,3 +143,4 @@ docker-hadoop-kube/spark-submit-3.0.1/*.jar
 # meld temp files
 *.orig
 
+.DS_Store
