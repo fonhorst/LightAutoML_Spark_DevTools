@@ -360,8 +360,8 @@ class ParallelExperiment:
         full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
 
         # won't work without do_shuffle=True, that means we should move train_df + valid_df merging somewhere upstream
-        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs,
-        #                                                        do_shuffle=True).transform(full_data)
+        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs,
+                                                               do_shuffle=True).transform(full_data)
 
         # full_data = train_df
 

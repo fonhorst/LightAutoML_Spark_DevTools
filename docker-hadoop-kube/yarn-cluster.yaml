@@ -203,7 +203,7 @@ spec:
           emptyDir: {}
       containers:
         - name: nodemanager
-          image: node2.bdcl:5000/yarn-nodemanager:slama-yarn-java-11
+          image: node2.bdcl:5000/yarn-nodemanager:slama-yarn-java-11-bookworm-20230227
           imagePullPolicy: Always
           resources:
             requests:
