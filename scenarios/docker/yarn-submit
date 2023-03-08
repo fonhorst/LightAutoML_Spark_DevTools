@@ -20,7 +20,7 @@ PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/.replay_venv/bin/python
 MAX_JOB_PARALLELISM=${MAX_JOB_PARALLELISM:-"3"}
 PREPARE_FOLD_NUM=${PREPARE_FOLD_NUM:-"5"}
 USE_FOLD_NUM=${USE_FOLD_NUM:-"5"}
-USE_PREF_LOCS=${USE_PREF_LOCS:-"true"}
+PARALLELISM_MODE=${PARALLELISM_MODE:-"pref_locs"}
 LOG_TO_MLFLOW=${LOG_TO_MLFLOW:-"1"}
 LOG_FILES_TO_MLFLOW=${LOG_FILES_TO_MLFLOW:-"0"}
 DATASET=${DATASET:-"lama_test_dataset"}
@@ -55,7 +55,7 @@ spark-submit \
 --conf "spark.yarn.appMasterEnv.MAX_JOB_PARALLELISM=${MAX_JOB_PARALLELISM}" \
 --conf "spark.yarn.appMasterEnv.PREPARE_FOLD_NUM=${PREPARE_FOLD_NUM}" \
 --conf "spark.yarn.appMasterEnv.USE_FOLD_NUM=${USE_FOLD_NUM}" \
---conf "spark.yarn.appMasterEnv.USE_PREF_LOCS=${USE_PREF_LOCS}" \
+--conf "spark.yarn.appMasterEnv.PARALLELISM_MODE=${PARALLELISM_MODE}" \
 --conf "spark.yarn.appMasterEnv.LOG_TO_MLFLOW=${LOG_TO_MLFLOW}" \
 --conf "spark.yarn.appMasterEnv.LOG_FILES_TO_MLFLOW=${LOG_FILES_TO_MLFLOW}" \
 --conf "spark.yarn.appMasterEnv.GIT_PYTHON_REFRESH=quiet" \

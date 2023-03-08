@@ -43,16 +43,12 @@ spec:
             value: "2"
           - name: MAX_JOB_PARALLELISM
             value: "3"
-          - name: LGB_NUM_TASKS
-            value: "4"
-          - name: LGB_NUM_THREADS
-            value: "1"
           - name: PREPARE_FOLD_NUM
             value: "5"
           - name: USE_FOLD_NUM
             value: "5"
-          - name: USE_PREF_LOCS
-            value: "true"
+          - name: PARALLELISM_MODE
+            value: "pref_locs"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET

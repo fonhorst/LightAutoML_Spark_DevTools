@@ -165,29 +165,27 @@ class DatasetSlot:
     test_df: DataFrame
     pref_locs: Optional[List[str]]
     num_tasks: int
+    num_threads: int
     use_single_dataset_mode: bool
     free: bool
 
 
 class ParallelismMode(Enum):
-    pref_locs = "pref_locs"
-    no_single_dataset_mode = "no_single_dataset_mode"
-    no_parallelism = "no_parallelism"
+    pref_locs = 1
+    no_single_dataset_mode = 2
+    single_dataset_mode = 3
+    no_parallelism = 4
 
 
 class ParallelExperiment:
     def __init__(self,
                  spark: SparkSession,
                  dataset_name: str,
-                 lgb_num_tasks: int,
-                 lgb_num_threads: int,
                  prepare_fold_num: int = 5,
                  use_fold_num: int = 5,
                  parallelism_mode: ParallelismMode = ParallelismMode.pref_locs):
         self.spark = spark
         self.dataset_name = dataset_name
-        self.lgb_num_tasks = lgb_num_tasks
-        self.lgb_num_threads = lgb_num_threads
         self.prepare_fold_num = prepare_fold_num
         self.use_fold_num = use_fold_num
         self.parallelism_mode = parallelism_mode
@@ -240,6 +238,7 @@ class ParallelExperiment:
                     test_df=test_df,
                     pref_locs=pref_locs,
                     num_tasks=len(pref_locs) * self._cores_per_exec,
+                    num_threads=0,
                     use_single_dataset_mode=True,
                     free=True
                 ))
@@ -252,15 +251,36 @@ class ParallelExperiment:
                 test_df=self.test_dataset,
                 pref_locs=None,
                 num_tasks=num_tasks_per_job,
+                num_threads=0,
                 use_single_dataset_mode=False,
                 free=False
             )
+        elif self.parallelism_mode == ParallelismMode.single_dataset_mode:
+            num_tasks_per_job = max(1, math.floor(len(self._executors) * self._cores_per_exec / max_job_parallelism))
+            num_threads_per_exec = max(1, math.floor(num_tasks_per_job / len(self._executors)))
+
+            if num_threads_per_exec != 1:
+                warnings.warn(f"Num threads per exec {num_threads_per_exec} != 1. "
+                              f"Overcommitting or undercommiting may happen due to "
+                              f"uneven allocations of cores between executors for a job")
+
+            self._slot = DatasetSlot(
+                train_df=self.train_dataset,
+                test_df=self.test_dataset,
+                pref_locs=None,
+                num_tasks=num_tasks_per_job,
+                num_threads=num_threads_per_exec,
+                use_single_dataset_mode=True,
+                free=False
+            )
+
         else:
             self._slot = DatasetSlot(
                 train_df=self.train_dataset,
                 test_df=self.test_dataset,
                 pref_locs=None,
                 num_tasks=self.train_dataset.rdd.getNumPartitions(),
+                num_threads=0,
                 use_single_dataset_mode=True,
                 free=False
             )
@@ -403,8 +423,8 @@ class ParallelExperiment:
         )
 
         with self._use_train() as slot:
-            train_df, test_df, num_tasks, use_single_dataset \
-                = slot.train_df, slot.test_df, slot.num_tasks, slot.use_single_dataset_mode
+            train_df, test_df, num_tasks, num_threads, use_single_dataset \
+                = slot.train_df, slot.test_df, slot.num_tasks, slot.num_threads, slot.use_single_dataset_mode
             full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
 
             lgbm_booster = LightGBMRegressor if task_type == "reg" else LightGBMClassifier
@@ -420,7 +440,7 @@ class ParallelExperiment:
                 chunkSize=4_000_000,
                 useBarrierExecutionMode=True,
                 numTasks=num_tasks,
-                # numThreads=self.lgb_num_threads
+                numThreads=num_threads
             )
 
             if task_type == "reg":
@@ -473,11 +493,9 @@ def main():
     exp = ParallelExperiment(
         spark,
         dataset_name=os.environ.get("DATASET", "used_cars_dataset"),
-        lgb_num_tasks=int(os.environ.get("LGB_NUM_TASKS", "2")),
-        lgb_num_threads=int(os.environ.get("LGB_NUM_THREADS", "2")),
         prepare_fold_num=int(os.environ.get("PREPARE_FOLD_NUM", "5")),
         use_fold_num=int(os.environ.get("USE_FOLD_NUM", "5")),
-        use_pref_locs=True if os.environ.get("USE_PREF_LOCS", "true") == "true" else False
+        parallelism_mode=ParallelismMode[os.environ.get("PARALLELISM_MODE", "pref_locs")]
     )
     exp.prepare_dataset()
     results = exp.run(max_job_parallelism=int(os.environ.get("MAX_JOB_PARALLELISM", "3")))
