@@ -41,6 +41,8 @@ spec:
             value: "6"
           - name: EXECUTOR_CORES
             value: "2"
+          - name: MAX_JOB_PARALLELISM
+            value: "1"
           - name: LGB_NUM_TASKS
             value: "4"
           - name: LGB_NUM_THREADS
@@ -48,9 +50,9 @@ spec:
           - name: PREPARE_FOLD_NUM
             value: "5"
           - name: USE_FOLD_NUM
-            value: "4"
+            value: "5"
           - name: USE_PREF_LOCS
-            value: "true"
+            value: "false"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET

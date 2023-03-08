@@ -205,6 +205,7 @@ class ParallelExperiment:
     def prepare_dataset(self, force=True):
         logger.info(f"Preparing dataset {self.dataset_name}. "
                     f"Writing train, test and metadata to {self.base_dataset_path}")
+        return
 
         # if os.path.exists(self.base_dataset_path) and not force:
         #     logger.info(f"Found existing {self.base_dataset_path}. Skipping writing dataset files")
