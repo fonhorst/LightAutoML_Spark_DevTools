@@ -238,7 +238,7 @@ class ParallelExperiment:
                     test_df=test_df,
                     pref_locs=pref_locs,
                     num_tasks=len(pref_locs) * self._cores_per_exec,
-                    num_threads=0,
+                    num_threads=-1,
                     use_single_dataset_mode=True,
                     free=True
                 ))
@@ -251,7 +251,7 @@ class ParallelExperiment:
                 test_df=self.test_dataset,
                 pref_locs=None,
                 num_tasks=num_tasks_per_job,
-                num_threads=0,
+                num_threads=-1,
                 use_single_dataset_mode=False,
                 free=False
             )
@@ -280,7 +280,7 @@ class ParallelExperiment:
                 test_df=self.test_dataset,
                 pref_locs=None,
                 num_tasks=self.train_dataset.rdd.getNumPartitions(),
-                num_threads=0,
+                num_threads=-1,
                 use_single_dataset_mode=True,
                 free=False
             )
@@ -429,6 +429,9 @@ class ParallelExperiment:
 
             lgbm_booster = LightGBMRegressor if task_type == "reg" else LightGBMClassifier
 
+            if num_threads != -1:
+                params['numThreads'] = num_threads
+
             lgbm = lgbm_booster(
                 **params,
                 featuresCol=assembler.getOutputCol(),
@@ -439,8 +442,7 @@ class ParallelExperiment:
                 isProvideTrainingMetric=True,
                 chunkSize=4_000_000,
                 useBarrierExecutionMode=True,
-                numTasks=num_tasks,
-                numThreads=num_threads
+                numTasks=num_tasks
             )
 
             if task_type == "reg":
