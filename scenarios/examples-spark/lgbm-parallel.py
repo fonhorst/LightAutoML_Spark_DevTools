@@ -329,7 +329,7 @@ class ParallelExperiment:
             **params,
             featuresCol=assembler.getOutputCol(),
             labelCol=md['target'],
-            # validationIndicatorCol='is_val',
+            validationIndicatorCol='is_val',
             verbosity=1,
             useSingleDatasetMode=True,
             isProvideTrainingMetric=True,
