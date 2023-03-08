@@ -1,14 +1,19 @@
 import functools
 import logging
+import math
 import os
 import pickle
 import shutil
+import threading
+import warnings
+from contextlib import contextmanager
 from enum import Enum
 from functools import lru_cache
 from multiprocessing.pool import ThreadPool
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any, Optional, Iterator
 
 # noinspection PyUnresolvedReferences
+from attr import dataclass
 from pyspark import inheritable_thread_target, SparkContext
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
@@ -149,6 +154,14 @@ def executors() -> List[str]:
     return sc._jvm.org.apache.spark.lightautoml.utils.SomeFunctions.executors()
 
 
+@dataclass
+class DatasetSlot:
+    train_df: DataFrame
+    test_df: DataFrame
+    pref_locs: Optional[List[str]]
+    free: bool
+
+
 class ParallelExperiment:
     def __init__(self,
                  spark: SparkSession,
@@ -172,32 +185,53 @@ class ParallelExperiment:
 
         self._executors = list(executors())
 
+        self._train_slots: Optional[List[DatasetSlot]] = None
         self._fold2train: Dict[int, Tuple[DataFrame, Optional[List[str]]]] = dict()
+
+        self._train_slots_lock = threading.Lock()
 
     def prepare_trains(self, max_job_parallelism: int):
         train_df = self.train_dataset
-
-        max_fold = train_df.select(sf.max('reader_fold_num').alias('max_fold')).first()['max_fold']
+        test_df = self.test_dataset
 
         if self.use_pref_locs:
-            for fold in range(max_fold + 1):
-                fld = fold % max_job_parallelism
-                pref_locs = self._executors[fld * 2: fld * 2 + 2]
-                train_df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(train_df)
+            execs_per_job = min(1, math.floor(len(self._executors) / max_job_parallelism))
 
-                train_df = train_df.cache()
-                train_df.write.mode('overwrite').format('noop').save()
+            if len(self._executors) % max_job_parallelism != 0:
+                warnings.warn(f"Uneven number of executors per job. Setting execs per job: {execs_per_job}.")
 
-                self._fold2train[fold] = (train_df, pref_locs)
+            slots_num = int(len(self._executors) / execs_per_job)
 
-                print(f"Pref lcos for fold {fold}: {pref_locs}")
+            self._train_slots = []
+
+            def _coalesce_df_to_locs(df: DataFrame, pref_locs: List[str]):
+                df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(df)
+                df = df.cache()
+                df.write.mode('overwrite').format('noop').save()
+                return df
+
+            for i in range(slots_num):
+                pref_locs = self._executors[i * execs_per_job: (i + 1) * execs_per_job]
+
+                # prepare train
+                train_df = _coalesce_df_to_locs(train_df, pref_locs)
+
+                # prepare test
+                test_df = _coalesce_df_to_locs(test_df, pref_locs)
+
+                self._train_slots.append(DatasetSlot(train_df, test_df, pref_locs, True))
+
+                print(f"Pref lcos for slot #{i}: {pref_locs}")
+
+    @contextmanager
+    def use_train(self) -> Iterator[DataFrame]:
+        if self._train_slots:
+            with self._train_slots_lock:
+                free_slot = next((slot for slot in self._train_slots if slot.free))
+                free_slot.free = False
+            yield free_slot.train_df, free_slot.test_df
         else:
-
-            train_df = train_df.cache()
-            train_df.write.mode('overwrite').format('noop').save()
-
-            for fold in range(max_fold + 1):
-                self._fold2train[fold] = (train_df, None)
+            yield self.train_dataset, self.test_dataset
 
     def get_train(self, fold: int) -> Optional[Tuple[DataFrame, List[str]]]:
         return self._fold2train[fold]
@@ -343,43 +377,26 @@ class ParallelExperiment:
         if task_type == "reg":
             lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
 
-        train_df, _ = self.get_train(fold)
+        with self.use_train() as train_df, test_df:
+            full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
 
-        full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+            print(f"Props #{fold}: {full_data.sql_ctx.sparkSession.sparkContext.getLocalProperty('spark.task.cpus')}")
 
-        # if self.use_pref_locs:
-        #     # valid_df = train_df.where('is_val')
-        #     # train_df = train_df.where(~sf.col('is_val'))
-        #     # full_data = valid_df.unionByName(train_df)
-        #     # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
-        #
-        #     # won't work without do_shuffle=True,
-        #     # that means we should move train_df + valid_df merging somewhere upstream
-        #     # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs)\
-        #     #     .transform(full_data)
-        # else:
-        #     full_data = train_df
+            transformer = lgbm.fit(assembler.transform(full_data))
+            preds_df = transformer.transform(assembler.transform(test_df))
 
-        print(f"Props #{fold}: {full_data.sql_ctx.sparkSession.sparkContext.getLocalProperty('spark.task.cpus')}")
+            score = SparkTask(task_type).get_dataset_metric()
+            metric_value = score(
+                preds_df.select(
+                    SparkDataset.ID_COLUMN,
+                    sf.col(md['target']).alias('target'),
+                    sf.col(prediction_col).alias('prediction')
+                )
+            )
 
-        transformer = lgbm.fit(assembler.transform(full_data))
+            logger.info(f"Finished training the model for fold #{fold}")
 
-        # preds_df = transformer.transform(assembler.transform(test_df))
-
-
-        # score = SparkTask(task_type).get_dataset_metric()
-        # metric_value = score(
-        #     preds_df.select(
-        #         SparkDataset.ID_COLUMN,
-        #         sf.col(md['target']).alias('target'),
-        #         sf.col(prediction_col).alias('prediction')
-        #     )
-        # )
-
-        logger.info(f"Finished training the model for fold #{fold}")
-
-        # return fold, metric_value
-        return fold, -1.0
+        return fold, metric_value
 
     def run(self, max_job_parallelism: int = 3) -> List[Tuple[int, float]]:
         with log_exec_timer("Parallel experiment runtime"):

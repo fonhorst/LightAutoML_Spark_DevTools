@@ -42,7 +42,7 @@ spec:
           - name: EXECUTOR_CORES
             value: "2"
           - name: MAX_JOB_PARALLELISM
-            value: "1"
+            value: "3"
           - name: LGB_NUM_TASKS
             value: "4"
           - name: LGB_NUM_THREADS
