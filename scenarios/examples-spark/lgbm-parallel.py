@@ -165,7 +165,14 @@ class DatasetSlot:
     test_df: DataFrame
     pref_locs: Optional[List[str]]
     num_tasks: int
+    use_single_dataset_mode: bool
     free: bool
+
+
+class ParallelismMode(Enum):
+    pref_locs = "pref_locs"
+    no_single_dataset_mode = "no_single_dataset_mode"
+    no_parallelism = "no_parallelism"
 
 
 class ParallelExperiment:
@@ -176,14 +183,14 @@ class ParallelExperiment:
                  lgb_num_threads: int,
                  prepare_fold_num: int = 5,
                  use_fold_num: int = 5,
-                 use_pref_locs: bool = True):
+                 parallelism_mode: ParallelismMode = ParallelismMode.pref_locs):
         self.spark = spark
         self.dataset_name = dataset_name
         self.lgb_num_tasks = lgb_num_tasks
         self.lgb_num_threads = lgb_num_threads
         self.prepare_fold_num = prepare_fold_num
         self.use_fold_num = use_fold_num
-        self.use_pref_locs = use_pref_locs
+        self.parallelism_mode = parallelism_mode
         self.base_dataset_path = f"/opt/spark_data/parallel_slama_{dataset_name}"
         self.train_path = os.path.join(self.base_dataset_path, "train.parquet")
         self.test_path = os.path.join(self.base_dataset_path, "test.parquet")
@@ -192,16 +199,18 @@ class ParallelExperiment:
         self._executors = list(executors())
         self._cores_per_exec = cores_per_exec()
 
+        # for ParallelismMode.pref_locs
         self._train_slots: Optional[List[DatasetSlot]] = None
-        self._fold2train: Dict[int, Tuple[DataFrame, Optional[List[str]]]] = dict()
-
         self._train_slots_lock = threading.Lock()
+
+        # for ParallelismMode.no_single_dataset_mode
+        self._slot: Optional[DatasetSlot] = None
 
     def prepare_trains(self, max_job_parallelism: int):
         train_df = self.train_dataset
         test_df = self.test_dataset
 
-        if self.use_pref_locs:
+        if self.parallelism_mode == ParallelismMode.pref_locs:
             execs_per_job = max(1, math.floor(len(self._executors) / max_job_parallelism))
 
             if len(self._executors) % max_job_parallelism != 0:
@@ -231,14 +240,34 @@ class ParallelExperiment:
                     test_df=test_df,
                     pref_locs=pref_locs,
                     num_tasks=len(pref_locs) * self._cores_per_exec,
+                    use_single_dataset_mode=True,
                     free=True
                 ))
 
                 print(f"Pref lcos for slot #{i}: {pref_locs}")
+        elif self.parallelism_mode == ParallelismMode.no_single_dataset_mode :
+            num_tasks_per_job = max(1, math.floor(len(self._executors) * self._cores_per_exec / max_job_parallelism))
+            self._slot = DatasetSlot(
+                train_df=self.train_dataset,
+                test_df=self.test_dataset,
+                pref_locs=None,
+                num_tasks=num_tasks_per_job,
+                use_single_dataset_mode=False,
+                free=False
+            )
+        else:
+            self._slot = DatasetSlot(
+                train_df=self.train_dataset,
+                test_df=self.test_dataset,
+                pref_locs=None,
+                num_tasks=self.train_dataset.rdd.getNumPartitions(),
+                use_single_dataset_mode=True,
+                free=False
+            )
 
     @contextmanager
     def _use_train(self) -> Iterator[DatasetSlot]:
-        if self._train_slots:
+        if self.parallelism_mode == ParallelismMode.pref_locs:
             with self._train_slots_lock:
                 free_slot = next((slot for slot in self._train_slots if slot.free))
                 free_slot.free = False
@@ -247,18 +276,8 @@ class ParallelExperiment:
 
             with self._train_slots_lock:
                 free_slot.free = True
-
         else:
-            yield DatasetSlot(
-                train_df=self.train_dataset,
-                test_df=self.test_dataset,
-                pref_locs=None,
-                num_tasks=self.train_dataset.rdd.getNumPartitions(),
-                free=False
-            )
-
-    def get_train(self, fold: int) -> Optional[Tuple[DataFrame, List[str]]]:
-        return self._fold2train[fold]
+            yield self._slot
 
     def prepare_dataset(self, force=True):
         logger.info(f"Preparing dataset {self.dataset_name}. "
@@ -384,7 +403,8 @@ class ParallelExperiment:
         )
 
         with self._use_train() as slot:
-            train_df, test_df, num_tasks = slot.train_df, slot.test_df, slot.num_tasks
+            train_df, test_df, num_tasks, use_single_dataset \
+                = slot.train_df, slot.test_df, slot.num_tasks, slot.use_single_dataset_mode
             full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
 
             lgbm_booster = LightGBMRegressor if task_type == "reg" else LightGBMClassifier
@@ -395,7 +415,7 @@ class ParallelExperiment:
                 labelCol=md['target'],
                 # validationIndicatorCol='is_val',
                 verbosity=1,
-                useSingleDatasetMode=True,
+                useSingleDatasetMode=use_single_dataset,
                 isProvideTrainingMetric=True,
                 chunkSize=4_000_000,
                 useBarrierExecutionMode=True,
