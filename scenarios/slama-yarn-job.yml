@@ -52,7 +52,7 @@ spec:
           - name: USE_FOLD_NUM
             value: "5"
           - name: USE_PREF_LOCS
-            value: "false"
+            value: "true"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET

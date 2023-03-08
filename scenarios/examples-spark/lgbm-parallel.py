@@ -7,6 +7,7 @@ import shutil
 import threading
 import warnings
 from contextlib import contextmanager
+from copy import deepcopy
 from enum import Enum
 from functools import lru_cache
 from multiprocessing.pool import ThreadPool
@@ -36,7 +37,7 @@ from pyspark.ml.wrapper import JavaTransformer
 logger = logging.getLogger(__name__)
 
 
-params = {
+base_params = {
     'learningRate': 0.01,
     'numLeaves': 32,
     'featureFraction': 0.7,
@@ -154,11 +155,16 @@ def executors() -> List[str]:
     return sc._jvm.org.apache.spark.lightautoml.utils.SomeFunctions.executors()
 
 
+def cores_per_exec() -> int:
+    return 2
+
+
 @dataclass
 class DatasetSlot:
     train_df: DataFrame
     test_df: DataFrame
     pref_locs: Optional[List[str]]
+    num_tasks: int
     free: bool
 
 
@@ -184,6 +190,7 @@ class ParallelExperiment:
         self.metadata_path = os.path.join(self.base_dataset_path, "metadata.pickle")
 
         self._executors = list(executors())
+        self._cores_per_exec = cores_per_exec()
 
         self._train_slots: Optional[List[DatasetSlot]] = None
         self._fold2train: Dict[int, Tuple[DataFrame, Optional[List[str]]]] = dict()
@@ -195,7 +202,7 @@ class ParallelExperiment:
         test_df = self.test_dataset
 
         if self.use_pref_locs:
-            execs_per_job = min(1, math.floor(len(self._executors) / max_job_parallelism))
+            execs_per_job = max(1, math.floor(len(self._executors) / max_job_parallelism))
 
             if len(self._executors) % max_job_parallelism != 0:
                 warnings.warn(f"Uneven number of executors per job. Setting execs per job: {execs_per_job}.")
@@ -219,19 +226,36 @@ class ParallelExperiment:
                 # prepare test
                 test_df = _coalesce_df_to_locs(test_df, pref_locs)
 
-                self._train_slots.append(DatasetSlot(train_df, test_df, pref_locs, True))
+                self._train_slots.append(DatasetSlot(
+                    train_df=train_df,
+                    test_df=test_df,
+                    pref_locs=pref_locs,
+                    num_tasks=len(pref_locs) * self._cores_per_exec,
+                    free=True
+                ))
 
                 print(f"Pref lcos for slot #{i}: {pref_locs}")
 
     @contextmanager
-    def use_train(self) -> Iterator[DataFrame]:
+    def _use_train(self) -> Iterator[DatasetSlot]:
         if self._train_slots:
             with self._train_slots_lock:
                 free_slot = next((slot for slot in self._train_slots if slot.free))
                 free_slot.free = False
-            yield free_slot.train_df, free_slot.test_df
+
+            yield free_slot
+
+            with self._train_slots_lock:
+                free_slot.free = True
+
         else:
-            yield self.train_dataset, self.test_dataset
+            yield DatasetSlot(
+                train_df=self.train_dataset,
+                test_df=self.test_dataset,
+                pref_locs=None,
+                num_tasks=self.train_dataset.rdd.getNumPartitions(),
+                free=False
+            )
 
     def get_train(self, fold: int) -> Optional[Tuple[DataFrame, List[str]]]:
         return self._fold2train[fold]
@@ -324,6 +348,7 @@ class ParallelExperiment:
         # train_df.sql_ctx.sparkSession.sparkContext.setLocalProperty("spark.task.cpus", "6")
 
         prediction_col = 'LightGBM_prediction_0'
+        params = deepcopy(base_params)
         if task_type in ["binary", "multiclass"]:
             params["rawPredictionCol"] = 'raw_prediction'
             params["probabilityCol"] = prediction_col
@@ -358,31 +383,31 @@ class ParallelExperiment:
             handleInvalid="keep"
         )
 
-        lgbm_booster = LightGBMRegressor if task_type == "reg" else LightGBMClassifier
-
-        lgbm = lgbm_booster(
-            **params,
-            featuresCol=assembler.getOutputCol(),
-            labelCol=md['target'],
-            validationIndicatorCol='is_val',
-            verbosity=1,
-            useSingleDatasetMode=True,
-            isProvideTrainingMetric=True,
-            chunkSize=4_000_000,
-            useBarrierExecutionMode=True,
-            numTasks=self.lgb_num_tasks,
-            # numThreads=self.lgb_num_threads
-        )
-
-        if task_type == "reg":
-            lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
-
-        with self.use_train() as train_df, test_df:
+        with self._use_train() as slot:
+            train_df, test_df, num_tasks = slot.train_df, slot.test_df, slot.num_tasks
             full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
 
-            print(f"Props #{fold}: {full_data.sql_ctx.sparkSession.sparkContext.getLocalProperty('spark.task.cpus')}")
+            lgbm_booster = LightGBMRegressor if task_type == "reg" else LightGBMClassifier
+
+            lgbm = lgbm_booster(
+                **params,
+                featuresCol=assembler.getOutputCol(),
+                labelCol=md['target'],
+                # validationIndicatorCol='is_val',
+                verbosity=1,
+                useSingleDatasetMode=True,
+                isProvideTrainingMetric=True,
+                chunkSize=4_000_000,
+                useBarrierExecutionMode=True,
+                numTasks=num_tasks,
+                # numThreads=self.lgb_num_threads
+            )
+
+            if task_type == "reg":
+                lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
 
             transformer = lgbm.fit(assembler.transform(full_data))
+            # metric_value = -1.0
             preds_df = transformer.transform(assembler.transform(test_df))
 
             score = SparkTask(task_type).get_dataset_metric()
