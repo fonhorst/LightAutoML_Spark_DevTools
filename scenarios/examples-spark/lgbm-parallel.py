@@ -6,7 +6,7 @@ import shutil
 from enum import Enum
 from functools import lru_cache
 from multiprocessing.pool import ThreadPool
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 
 # noinspection PyUnresolvedReferences
 from pyspark import inheritable_thread_target, SparkContext
@@ -150,12 +150,21 @@ def executors() -> List[str]:
 
 
 class ParallelExperiment:
-    def __init__(self, spark: SparkSession, dataset_name: str, lgb_num_tasks: int, lgb_num_threads: int):
+    def __init__(self,
+                 spark: SparkSession,
+                 dataset_name: str,
+                 lgb_num_tasks: int,
+                 lgb_num_threads: int,
+                 prepare_fold_num: int = 5,
+                 use_fold_num: int = 5,
+                 use_pref_locs: bool = True):
         self.spark = spark
         self.dataset_name = dataset_name
         self.lgb_num_tasks = lgb_num_tasks
         self.lgb_num_threads = lgb_num_threads
-        self.partitions_num = 4
+        self.prepare_fold_num = prepare_fold_num
+        self.use_fold_num = use_fold_num
+        self.use_pref_locs = use_pref_locs
         self.base_dataset_path = f"/opt/spark_data/parallel_slama_{dataset_name}"
         self.train_path = os.path.join(self.base_dataset_path, "train.parquet")
         self.test_path = os.path.join(self.base_dataset_path, "test.parquet")
@@ -163,41 +172,34 @@ class ParallelExperiment:
 
         self._executors = list(executors())
 
-        self._fold2train: Dict[int, Tuple[DataFrame, List[str]]] = dict()
+        self._fold2train: Dict[int, Tuple[DataFrame, Optional[List[str]]]] = dict()
 
     def prepare_trains(self, max_job_parallelism: int):
         train_df = self.train_dataset
 
         max_fold = train_df.select(sf.max('reader_fold_num').alias('max_fold')).first()['max_fold']
 
-        for fold in range(max_fold + 1):
-            fld = fold % max_job_parallelism
-            pref_locs = self._executors[fld * 2: fld * 2 + 2]
-            train_df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(train_df)
+        if self.use_pref_locs:
+            for fold in range(max_fold + 1):
+                fld = fold % max_job_parallelism
+                pref_locs = self._executors[fld * 2: fld * 2 + 2]
+                train_df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(train_df)
 
-            # train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
-            #
-            # valid_df = train_df.where('is_val')
-            # train_df = train_df.where(~sf.col('is_val'))
-            # full_data = valid_df.unionByName(train_df)
-            # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
+                train_df = train_df.cache()
+                train_df.write.mode('overwrite').format('noop').save()
 
+                self._fold2train[fold] = (train_df, pref_locs)
+
+                print(f"Pref lcos for fold {fold}: {pref_locs}")
+        else:
 
             train_df = train_df.cache()
             train_df.write.mode('overwrite').format('noop').save()
 
-            self._fold2train[fold] = (train_df, pref_locs)
+            for fold in range(max_fold + 1):
+                self._fold2train[fold] = (train_df, None)
 
-            print(f"Pref lcos for fold {fold}: {pref_locs}")
-
-        # check if it is possible to overcome the limitation by spark's ability existing shuffle files
-        # not sure if it works
-        # # TODO: lgb num tasks should be equal to num cores
-
-
-        print(f"Pref lcos for fold {fold}: {pref_locs}")
-
-    def get_train(self, fold: int) -> Tuple[DataFrame, List[str]]:
+    def get_train(self, fold: int) -> Optional[Tuple[DataFrame, List[str]]]:
         return self._fold2train[fold]
 
     def prepare_dataset(self, force=True):
@@ -213,7 +215,7 @@ class ParallelExperiment:
         #     shutil.rmtree(self.base_dataset_path)
 
         seed = 42
-        cv = 5
+        cv = self.prepare_fold_num
         path, task_type, roles, dtype = get_dataset_attrs(self.dataset_name)
 
         train_df, test_df = prepare_test_and_train(self.spark, path, seed)
@@ -340,42 +342,29 @@ class ParallelExperiment:
         if task_type == "reg":
             lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
 
-        # train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+        train_df, _ = self.get_train(fold)
+
+        full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+
+        # if self.use_pref_locs:
+        #     # valid_df = train_df.where('is_val')
+        #     # train_df = train_df.where(~sf.col('is_val'))
+        #     # full_data = valid_df.unionByName(train_df)
+        #     # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
         #
-        # valid_df = train_df.where('is_val')
-        # train_df = train_df.where(~sf.col('is_val'))
-        # full_data = valid_df.unionByName(train_df)
-        # full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
-        #
-        # # TODO: lgb num tasks should be equal to num cores
-        # pref_locs = self._executors[fold * 2: fold * 2 + 2]
-        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
-        # print(f"Pref lcos for fold {fold}: {pref_locs}")
-        train_df, pref_locs = self.get_train(fold)
-
-        train_df = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
-        valid_df = train_df.where('is_val')
-        train_df = train_df.where(~sf.col('is_val'))
-        full_data = valid_df.unionByName(train_df)
-        full_data = BalancedUnionPartitionsCoalescerTransformer().transform(full_data)
-
-        # won't work without do_shuffle=True, that means we should move train_df + valid_df merging somewhere upstream
-        full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs,
-                                                               do_shuffle=True).transform(full_data)
-
-        # full_data = train_df
-
-        # TODO: lgb num tasks should be equal to num cores
-        # fld = fold % 3# max_job_parallelism
-        # pref_locs = self._executors[fld * 2: fld * 2 + 2]
-        # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(full_data)
-        #
-        # print(f"Pref lcos for fold {fold}: {pref_locs}")
-
-        transformer = lgbm.fit(assembler.transform(full_data))
-        preds_df = transformer.transform(assembler.transform(test_df))
+        #     # won't work without do_shuffle=True,
+        #     # that means we should move train_df + valid_df merging somewhere upstream
+        #     # full_data = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs)\
+        #     #     .transform(full_data)
+        # else:
+        #     full_data = train_df
 
         print(f"Props #{fold}: {full_data.sql_ctx.sparkSession.sparkContext.getLocalProperty('spark.task.cpus')}")
+
+        transformer = lgbm.fit(assembler.transform(full_data))
+
+        # preds_df = transformer.transform(assembler.transform(test_df))
+
 
         # score = SparkTask(task_type).get_dataset_metric()
         # metric_value = score(
@@ -400,7 +389,7 @@ class ParallelExperiment:
                     self.train_model,
                     fold
                 )
-                for fold in range(4)
+                for fold in range(self.use_fold_num)
             ]
 
             self.prepare_trains(max_job_parallelism)
@@ -418,13 +407,14 @@ def main():
     partitions_num = 6
     spark = get_spark_session(partitions_num=partitions_num)
 
-    # PrefferedLocsPartitionCoalescerTransformer(pref_locs=["1", "2"])
-
     exp = ParallelExperiment(
         spark,
         dataset_name=os.environ.get("DATASET", "used_cars_dataset"),
         lgb_num_tasks=int(os.environ.get("LGB_NUM_TASKS", "2")),
-        lgb_num_threads=int(os.environ.get("LGB_NUM_THREADS", "2"))
+        lgb_num_threads=int(os.environ.get("LGB_NUM_THREADS", "2")),
+        prepare_fold_num=int(os.environ.get("PREPARE_FOLD_NUM", "5")),
+        use_fold_num=int(os.environ.get("USE_FOLD_NUM", "5")),
+        use_pref_locs=True if os.environ.get("USE_PREF_LOCS", "true") == "true" else False
     )
     exp.prepare_dataset()
     results = exp.run(max_job_parallelism=int(os.environ.get("MAX_JOB_PARALLELISM", "3")))
