@@ -477,7 +477,8 @@ class ParallelExperiment:
 
             self.prepare_trains(max_job_parallelism)
 
-            pool = ThreadPool(processes=max_job_parallelism)
+            processes_num = 1 if self.parallelism_mode == ParallelismMode.no_parallelism else max_job_parallelism
+            pool = ThreadPool(processes=processes_num)
             tasks = map(inheritable_thread_target, tasks)
             results = (result for result in pool.imap_unordered(lambda f: f(), tasks) if result)
             results = sorted(results, key=lambda x: x[0])
