@@ -3,15 +3,14 @@ import os
 import uuid
 
 import mlflow
+from pyspark.sql import functions as sf
 from sparklightautoml.reader.base import SparkToSparkReader
 from sparklightautoml.tasks.base import SparkTask as SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 
-from examples_utils import get_persistence_manager, check_executors_count, \
-    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco
+from examples_utils import check_executors_count, \
+    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco, handle_if_msd_2stage
 from examples_utils import get_spark_session, get_dataset_attrs
-
-from pyspark.sql import functions as sf
 
 uid = uuid.uuid4()
 log_filename = f'/tmp/slama-{uid}.log'
@@ -37,16 +36,9 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     with log_exec_timer("full_time"):
         train_df = spark.read.parquet(path)
 
-        if dataset_name == "msd_2stage":
-            def explode_vec(col_name: str):
-                return [sf.col(col_name).getItem(i).alias(f'{col_name}_{i}') for i in range(100)]
+        train_df = handle_if_msd_2stage(dataset_name, train_df)
 
-            train_df = train_df.select(
-                "*", *explode_vec("user_factors"), *explode_vec("item_factors"),
-                *explode_vec("factors_mult")
-            ).drop("user_factors", "item_factors", "factors_mult")
-
-        sreader = SparkToSparkReader(task=SparkTask(task_type), cv=cv, advanced_roles=False)
+        sreader = SparkToSparkReader(task=SparkTask(task_type), cv=cv, samples=10_000, advanced_roles=False)
         sreader.fit_read(train_df, roles=roles)#, persistence_manager=persistence_manager)
 
     logger.info("Finished")

@@ -4,6 +4,7 @@ from typing import Tuple, Optional, Union, List, Callable
 
 import mlflow
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as sf
 from sparklightautoml.dataset import persistence
 from sparklightautoml.dataset.base import PersistenceManager, PersistableDataFrame, SparkDataset, PersistenceLevel
 from sparklightautoml.utils import SparkDataFrame, log_exec_timer
@@ -313,3 +314,16 @@ def mlflow_deco(main: Callable[[int, int, str], None]):
             main(cv, seed, dataset_name)
     else:
         main(cv, seed, dataset_name)
+
+
+def handle_if_msd_2stage(dataset_name: str, df: SparkDataFrame) -> SparkDataFrame:
+    if dataset_name == "msd_2stage":
+        def explode_vec(col_name: str):
+            return [sf.col(col_name).getItem(i).alias(f'{col_name}_{i}') for i in range(100)]
+
+        df = df.select(
+            "*", *explode_vec("user_factors"), *explode_vec("item_factors"),
+            *explode_vec("factors_mult")
+        ).drop("user_factors", "item_factors", "factors_mult")
+
+    return df
