@@ -23,8 +23,10 @@ ARG SLAMA_JAR_VERSION=0.1
 COPY $SLAMA_BUILD_TMP/requirements.txt /src
 COPY $SLAMA_BUILD_TMP/SparkLightAutoML_DEV-${SLAMA_WHEEL_VERSION}-py3-none-any.whl /src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl
 COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar /src
-
 COPY $SLAMA_BUILD_TMP/examples-spark /src/examples-spark
+
+ENV SLAMA_WHEEL_VERSION=${SLAMA_WHEEL_VERSION}
+ENV SLAMA_JAR_VERSION=${SLAMA_JAR_VERSION}
 
 WORKDIR /src
 

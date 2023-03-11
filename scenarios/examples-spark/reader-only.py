@@ -9,7 +9,9 @@ from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 
 from examples_utils import get_persistence_manager, check_executors_count, \
     log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco
-from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
+from examples_utils import get_spark_session, get_dataset_attrs
+
+from pyspark.sql import functions as sf
 
 uid = uuid.uuid4()
 log_filename = f'/tmp/slama-{uid}.log'
@@ -30,16 +32,22 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
 
     path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
 
-    persistence_manager = get_persistence_manager(run_id=str(uid))
+    # persistence_manager = get_persistence_manager(run_id=str(uid))
 
     with log_exec_timer("full_time"):
-        train_df, test_df = prepare_test_and_train(spark, path, seed)
+        train_df = spark.read.parquet(path)
 
-        task = SparkTask(task_type)
-        score = task.get_dataset_metric()
+        if dataset_name == "msd_2stage":
+            def explode_vec(col_name: str):
+                return [sf.col(col_name).getItem(i).alias(f'{col_name}_{i}') for i in range(100)]
 
-        sreader = SparkToSparkReader(task=task, cv=cv, advanced_roles=False)
-        sreader.fit_read(train_df, roles=roles, persistence_manager=persistence_manager)
+            train_df = train_df.select(
+                "*", *explode_vec("user_factors"), *explode_vec("item_factors"),
+                *explode_vec("factors_mult")
+            ).drop("user_factors", "item_factors", "factors_mult")
+
+        sreader = SparkToSparkReader(task=SparkTask(task_type), cv=cv, advanced_roles=False)
+        sreader.fit_read(train_df, roles=roles)#, persistence_manager=persistence_manager)
 
     logger.info("Finished")
 

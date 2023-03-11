@@ -81,9 +81,9 @@ DATASETS = {
     },
 
     "msd_2stage": {
-        "path": "file:///opt/spark_data/sampled_app_train.csv",
+        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/msd_first_level_80_20/combined_train_4models.parquet",
         "task_type": "binary",
-        "roles": {"target": "TARGET", "drop": ["SK_ID_CURR"]},
+        "roles": {"target": "target", "drop": ["user_idx", "item_idx"]},
     },
 }
 
