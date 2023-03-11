@@ -99,7 +99,7 @@ spark-submit \
 --conf "spark.excludeOnFailure.stage.maxFailedExecutorsPerNode=1" \
 --conf "spark.excludeOnFailure.application.maxFailedTasksPerExecutor=1" \
 --conf "spark.excludeOnFailure.application.maxFailedExecutorsPerNode=1" \
---py-files "/src/SparkLightAutoML-0.3.2-py3-none-any.whl,/src/examples-spark/*,/src/tabular_config.yml" \
+--py-files "/src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl,/src/examples-spark/*,/src/tabular_config.yml" \
 --num-executors "${EXECUTOR_INSTANCES}" \
---jars "/src/spark-lightautoml_2.12-0.1.1.jar" \
+--jars "/src/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar" \
 "${SCRIPT}"

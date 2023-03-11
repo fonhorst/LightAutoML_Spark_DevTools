@@ -17,9 +17,12 @@ RUN chmod 755 /src/yarn-submit
 
 COPY tabular_config.yml /src
 
+ARG SLAMA_WHEEL_VERSION=0.3.0
+ARG SLAMA_JAR_VERSION=0.1
+
 COPY $SLAMA_BUILD_TMP/requirements.txt /src
-COPY $SLAMA_BUILD_TMP/SparkLightAutoML_DEV-0.3.2-py3-none-any.whl /src/SparkLightAutoML-0.3.2-py3-none-any.whl
-COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-0.1.1.jar /src
+COPY $SLAMA_BUILD_TMP/SparkLightAutoML_DEV-${SLAMA_WHEEL_VERSION}-py3-none-any.whl /src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl
+COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar /src
 
 COPY $SLAMA_BUILD_TMP/examples-spark /src/examples-spark
 

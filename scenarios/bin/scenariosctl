@@ -22,7 +22,12 @@ function build_images() {
   cp ${slama_path}/requirements.txt ${slama_build_path}
   cp -r examples-spark ${slama_build_path}/examples-spark/
 
-  docker build -t "${DOCKER_REPO}/slama:latest" -f ./docker/slama.dockerfile ./docker
+  docker build \
+    --build-arg SLAMA_WHEEL_VERSION="${SLAMA_WHEEL_VERSION:-0.3.0}" \
+    --build-arg SLAMA_JAR_VERSION="${SLAMA_JAR_VERSION:-0.1}" \
+    -t "${DOCKER_REPO}/slama:latest" \
+    -f ./docker/slama.dockerfile \
+    ./docker
 
   rm -rf ${slama_build_path}
 }
