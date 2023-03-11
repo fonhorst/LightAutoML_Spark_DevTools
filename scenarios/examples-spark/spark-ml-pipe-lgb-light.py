@@ -48,7 +48,7 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
         task = SparkTask(task_type)
         score = task.get_dataset_metric()
 
-        sreader = SparkToSparkReader(task=task, cv=cv, advanced_roles=False)
+        sreader = SparkToSparkReader(task=task, cv=cv, advanced_roles=False, samples=10_000)
         sdataset = sreader.fit_read(train_df, roles=roles, persistence_manager=persistence_manager)
 
         iterator = SparkFoldsIterator(sdataset).convert_to_holdout_iterator()
@@ -86,18 +86,6 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
             transformer.write().overwrite().save(model_path)
 
             mlflow.log_param("model_path", model_path)
-
-        with log_exec_timer("model_loading") as load_time:
-            pipeline_model = PipelineModel.load(model_path)
-
-        test_pred_df = pipeline_model.transform(test_df)
-        test_pred_df = test_pred_df.select(
-            SparkDataset.ID_COLUMN,
-            F.col(roles['target']).alias('target'),
-            F.col(spark_ml_algo.prediction_feature).alias('prediction')
-        )
-        test_score = score(test_pred_df)
-        logger.info(f"Test score (#3 way): {test_score}")
 
     logger.info("Finished")
 

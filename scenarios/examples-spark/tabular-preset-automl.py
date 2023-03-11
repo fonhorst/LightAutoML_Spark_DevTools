@@ -69,6 +69,7 @@ def main(cv: int, seed: int, dataset_name: str):
                 linear_l2_params={
                     'default_params': {'regParam': [1e-5]}
                 },
+                # reader_params={"cv": cv, "advanced_roles": False, "samples": 10_000},
                 reader_params={"cv": cv, "advanced_roles": False},
                 config_path="tabular_config.yml"
             )
