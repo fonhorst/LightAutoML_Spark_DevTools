@@ -78,7 +78,13 @@ DATASETS = {
         "path": "file:///opt/spark_data/company_bankruptcy_prediction_data.csv",
         "task_type": "binary",
         "roles": {"target": "Bankrupt?"},
-    }
+    },
+
+    "msd_2stage": {
+        "path": "file:///opt/spark_data/sampled_app_train.csv",
+        "task_type": "binary",
+        "roles": {"target": "TARGET", "drop": ["SK_ID_CURR"]},
+    },
 }
 
 

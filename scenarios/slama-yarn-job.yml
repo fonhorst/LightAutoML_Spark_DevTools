@@ -26,7 +26,8 @@ spec:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
-        args: ["/src/examples-spark/lgbm-parallel.py"]
+#        args: ["/src/examples-spark/lgbm-parallel.py"]
+        args: ["/src/examples-spark/reader-only.py"]
 #        envFrom:
 #          - configMapRef:
 #              name: hadoop-env
@@ -38,9 +39,9 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "6"
+            value: "4"
           - name: EXECUTOR_CORES
-            value: "2"
+            value: "6"
           - name: MAX_JOB_PARALLELISM
             value: "3"
           - name: PREPARE_FOLD_NUM
@@ -52,7 +53,7 @@ spec:
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "used_cars_dataset"
+            value: "used_cars_dataset_1x"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
         volumeMounts:
