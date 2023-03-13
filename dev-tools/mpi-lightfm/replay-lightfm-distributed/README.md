@@ -10,7 +10,7 @@
 - libstdc++.so.6: `GLIBCXX_3.4.26`
 
 ## Local experiment launch
-0. Clone `pygloo` repo, clone and build RePlay 
+0. Clone `pygloo` repo, clone and build `RePlay` 
    ```bash
    git clone https://github.com/ray-project/pygloo.git
    git clone https://github.com/fonhorst/RePlay.git && cd RePlay && poetry build
@@ -56,3 +56,13 @@
    ```bash
    PYTHONPATH=$PYTHONPATH:/src/example-local-spark python /src/example-local-spark/run_experiment.py
    ``` 
+   
+
+## Cluster experiment launch
+0. Prepare python3.8 environment (install `RePlay` dependencies, `pygloo`)
+1. Set the experiment parameters in `yarn-job.yml`
+2. From the root folder (`replay-lightfm-distributed`) run:
+   ```bash
+   bash bin/scenariosctl install-images
+   bash bin/scenariosctl restart-scenario
+   ```
