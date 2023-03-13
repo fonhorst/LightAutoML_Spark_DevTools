@@ -139,7 +139,7 @@ def get_dataset_attrs(name: str):
     )
 
 
-def prepare_test_and_train(spark: SparkSession, path: str, seed: int) -> Tuple[SparkDataFrame, SparkDataFrame]:
+def prepare_test_and_train(dataset_name: str, spark: SparkSession, path: str, seed: int) -> Tuple[SparkDataFrame, SparkDataFrame]:
     execs = int(spark.conf.get('spark.executor.instances', '1'))
     cores = int(spark.conf.get('spark.executor.cores', '8'))
 
@@ -148,6 +148,8 @@ def prepare_test_and_train(spark: SparkSession, path: str, seed: int) -> Tuple[S
         data = data.withColumn('target', sf.col('target').astype('int'))
     else:
         data = spark.read.csv(path, header=True, escape="\"")
+
+    data = handle_if_2stage(dataset_name, data)
 
     data = data.repartition(execs * cores).cache()
     data.write.mode('overwrite').format('noop').save()
@@ -367,8 +369,8 @@ def handle_if_2stage(dataset_name: str, df: SparkDataFrame) -> SparkDataFrame:
             return [sf.col(col_name).getItem(i).alias(f'{col_name}_{i}') for i in range(100)]
 
         df = df.select(
-            "*", *explode_vec("user_factors"), *explode_vec("item_factors"),
-            *explode_vec("factors_mult")
+            "*", *explode_vec("user_factors"), #*explode_vec("item_factors"),
+            #*explode_vec("factors_mult")
         ).drop("user_factors", "item_factors", "factors_mult")
 
     return df

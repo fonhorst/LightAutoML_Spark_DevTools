@@ -44,17 +44,17 @@ spec:
           - name: EXECUTOR_CORES
             value: "6"
           - name: MAX_JOB_PARALLELISM
-            value: "3"
+            value: "2"
           - name: PREPARE_FOLD_NUM
             value: "5"
           - name: USE_FOLD_NUM
-            value: "1"
+            value: "2"
           - name: PARALLELISM_MODE
-            value: "no_parallelism"
+            value: "no_single_dataset_mode"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "ml25m_2stage"
+            value: "ml25m_010p_2stage"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
         volumeMounts:

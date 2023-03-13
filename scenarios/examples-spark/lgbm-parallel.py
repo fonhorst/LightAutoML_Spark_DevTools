@@ -156,7 +156,7 @@ def executors() -> List[str]:
 
 
 def cores_per_exec() -> int:
-    return 2
+    return 6
 
 
 @dataclass
@@ -316,8 +316,8 @@ class ParallelExperiment:
         cv = self.prepare_fold_num
         path, task_type, roles, dtype = get_dataset_attrs(self.dataset_name)
 
-        train_df, test_df = prepare_test_and_train(self.spark, path, seed)
-        train_df, test_df = handle_if_2stage(self.dataset_name, train_df), handle_if_2stage(self.dataset_name, test_df)
+        train_df, test_df = prepare_test_and_train(self.dataset_name, self.spark, path, seed)
+        # train_df, test_df = handle_if_2stage(self.dataset_name, train_df), handle_if_2stage(self.dataset_name, test_df)
 
         task = SparkTask(task_type)
 

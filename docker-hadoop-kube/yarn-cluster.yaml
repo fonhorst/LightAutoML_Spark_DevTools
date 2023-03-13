@@ -105,10 +105,10 @@ spec:
           imagePullPolicy: Always
           resources:
             requests:
-              memory: "2Gi"
+              memory: "8Gi"
               cpu: "500m"
             limits:
-              memory: "2Gi"
+              memory: "8Gi"
               cpu: "2"
           envFrom:
             - configMapRef:
@@ -118,6 +118,8 @@ spec:
               value: "true"
             - name: "SPARK_HISTORY_OPTS"
               value: "-Dspark.history.fs.logDirectory=hdfs://node21.bdcl:9000/shared/spark-logs"
+            - name: "SPARK_DAEMON_MEMORY"
+              value: "7g"
           ports:
             - containerPort: 18080
               name: http-webui
