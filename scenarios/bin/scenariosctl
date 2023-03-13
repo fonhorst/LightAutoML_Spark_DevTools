@@ -7,6 +7,8 @@ DOCKER_REPO=node2.bdcl:5000
 function build_images() {
   slama_path="../../LightAutoML"
   slama_build_path="./docker/slama_build_tmp"
+  SLAMA_WHEEL_VERSION="${SLAMA_WHEEL_VERSION:-0.3.0}"
+  SLAMA_JAR_VERSION="${SLAMA_JAR_VERSION:-0.1}"
 
   # regenerate actual requirements .txt
   cur_path=$(pwd)
@@ -17,14 +19,14 @@ function build_images() {
   rm -rf "$slama_build_path"
   mkdir -p "$slama_build_path"
 
-  cp ${slama_path}/dist/SparkLightAutoML_DEV-0.3.2-py3-none-any.whl ${slama_build_path}
-  cp ${slama_path}/jars/spark-lightautoml_2.12-0.1.1.jar ${slama_build_path}
+  cp ${slama_path}/dist/SparkLightAutoML_DEV-${SLAMA_WHEEL_VERSION}-py3-none-any.whl ${slama_build_path}
+  cp ${slama_path}/jars/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar ${slama_build_path}
   cp ${slama_path}/requirements.txt ${slama_build_path}
   cp -r examples-spark ${slama_build_path}/examples-spark/
 
   docker build \
-    --build-arg SLAMA_WHEEL_VERSION="${SLAMA_WHEEL_VERSION:-0.3.0}" \
-    --build-arg SLAMA_JAR_VERSION="${SLAMA_JAR_VERSION:-0.1}" \
+    --build-arg SLAMA_WHEEL_VERSION="${SLAMA_WHEEL_VERSION}" \
+    --build-arg SLAMA_JAR_VERSION="${SLAMA_JAR_VERSION}" \
     -t "${DOCKER_REPO}/slama:latest" \
     -f ./docker/slama.dockerfile \
     ./docker

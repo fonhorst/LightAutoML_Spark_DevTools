@@ -86,6 +86,46 @@ DATASETS = {
         "task_type": "binary",
         "roles": {"target": "target", "drop": ["user_idx", "item_idx"]},
     },
+
+    "ml25m_2stage": {
+        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models.parquet",
+        "task_type": "binary",
+        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        #KeyError: 'timestamp
+        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
+                                               "i_max_interact_date", "u_min_interact_date",
+                                               "u_max_interact_date", "i_min_interact_date"]},
+    },
+
+    "ml25m_0035p_2stage": {
+        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_035percent.parquet",
+        "task_type": "binary",
+        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        #KeyError: 'timestamp
+        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
+                                               "i_max_interact_date", "u_min_interact_date",
+                                               "u_max_interact_date", "i_min_interact_date"]},
+    },
+
+    "ml25m_010p_2stage": {
+        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_10percent.parquet",
+        "task_type": "binary",
+        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        #KeyError: 'timestamp
+        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
+                                               "i_max_interact_date", "u_min_interact_date",
+                                               "u_max_interact_date", "i_min_interact_date"]},
+    },
+
+    "ml25m_035p_2stage": {
+        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_35percent.parquet",
+        "task_type": "binary",
+        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        #KeyError: 'timestamp
+        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
+                                               "i_max_interact_date", "u_min_interact_date",
+                                               "u_max_interact_date", "i_min_interact_date"]},
+    },
 }
 
 
@@ -103,7 +143,12 @@ def prepare_test_and_train(spark: SparkSession, path: str, seed: int) -> Tuple[S
     execs = int(spark.conf.get('spark.executor.instances', '1'))
     cores = int(spark.conf.get('spark.executor.cores', '8'))
 
-    data = spark.read.csv(path, header=True, escape="\"")
+    if path.endswith('.parquet'):
+        data = spark.read.parquet(path)
+        data = data.withColumn('target', sf.col('target').astype('int'))
+    else:
+        data = spark.read.csv(path, header=True, escape="\"")
+
     data = data.repartition(execs * cores).cache()
     data.write.mode('overwrite').format('noop').save()
 
@@ -316,8 +361,8 @@ def mlflow_deco(main: Callable[[int, int, str], None]):
         main(cv, seed, dataset_name)
 
 
-def handle_if_msd_2stage(dataset_name: str, df: SparkDataFrame) -> SparkDataFrame:
-    if dataset_name == "msd_2stage":
+def handle_if_2stage(dataset_name: str, df: SparkDataFrame) -> SparkDataFrame:
+    if dataset_name.endswith("2stage"):
         def explode_vec(col_name: str):
             return [sf.col(col_name).getItem(i).alias(f'{col_name}_{i}') for i in range(100)]
 

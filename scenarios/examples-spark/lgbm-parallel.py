@@ -21,7 +21,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
 from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
 
-from examples_utils import get_spark_session, get_dataset_attrs, prepare_test_and_train
+from examples_utils import get_spark_session, get_dataset_attrs, prepare_test_and_train, handle_if_2stage
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatures
 from sparklightautoml.reader.base import SparkToSparkReader
@@ -192,7 +192,7 @@ class ParallelExperiment:
         self.base_dataset_path = f"/opt/spark_data/parallel_slama_{dataset_name}"
         self.train_path = os.path.join(self.base_dataset_path, "train.parquet")
         self.test_path = os.path.join(self.base_dataset_path, "test.parquet")
-        self.metadata_path = os.path.join(self.base_dataset_path, "metadata.pickle")
+        self.metadata_path = os.path.join(self.base_dataset_path, "metadata.parquet")
 
         self._executors = list(executors())
         self._cores_per_exec = cores_per_exec()
@@ -317,6 +317,7 @@ class ParallelExperiment:
         path, task_type, roles, dtype = get_dataset_attrs(self.dataset_name)
 
         train_df, test_df = prepare_test_and_train(self.spark, path, seed)
+        train_df, test_df = handle_if_2stage(self.dataset_name, train_df), handle_if_2stage(self.dataset_name, test_df)
 
         task = SparkTask(task_type)
 
@@ -345,8 +346,8 @@ class ParallelExperiment:
             "target": roles["target"]
         }
 
-        with open(self.metadata_path, "wb") as f:
-            pickle.dump(metadata, f)
+        SparkSession.getActiveSession()\
+            .createDataFrame([{"data": pickle.dumps(metadata)}]).write.parquet(self.metadata_path, mode='overwrite')
 
         logger.info(f"Dataset {self.dataset_name} has been prepared.")
 
@@ -372,8 +373,8 @@ class ParallelExperiment:
 
     @property
     def metadata(self) -> Dict[str, Any]:
-        with open(self.metadata_path, "rb") as f:
-            return pickle.load(f)
+        data = self.spark.read.parquet(self.metadata_path).first().asDict()['data']
+        return pickle.loads(data)
 
     def train_model(self, fold: int) -> Tuple[int, float]:
         logger.info(f"Starting to train the model for fold #{fold}")
@@ -431,6 +432,8 @@ class ParallelExperiment:
 
             if num_threads != -1:
                 params['numThreads'] = num_threads
+
+            params["numIterations"] = 500
 
             lgbm = lgbm_booster(
                 **params,

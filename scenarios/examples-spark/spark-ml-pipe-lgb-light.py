@@ -15,7 +15,7 @@ from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
 from examples_utils import get_persistence_manager, check_executors_count, \
-    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco, handle_if_msd_2stage
+    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco, handle_if_2stage
 from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
 
 uid = uuid.uuid4()
@@ -42,8 +42,8 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     with log_exec_timer("full_time"):
         train_df, test_df = prepare_test_and_train(spark, path, seed)
 
-        train_df = handle_if_msd_2stage(dataset_name, train_df)
-        test_df = handle_if_msd_2stage(dataset_name, test_df)
+        train_df = handle_if_2stage(dataset_name, train_df)
+        test_df = handle_if_2stage(dataset_name, test_df)
 
         task = SparkTask(task_type)
         score = task.get_dataset_metric()
