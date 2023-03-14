@@ -1,18 +1,27 @@
 from datetime import timedelta
 import itertools
 import socket
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any
 
 from lightfm import LightFM
 from lightfm._lightfm_fast import CSRMatrix, FastLightFM, fit_bpr, fit_warp
 import numpy as np
+import pandas as pd
 from pyspark.sql import DataFrame, SparkSession, functions as sf
-
+from pyspark.sql.types import (
+    ArrayType,
+    DoubleType,
+    IntegerType,
+    StructField,
+    StructType,
+)
 try:
     import pygloo.dist.pygloo as pgl
 except ModuleNotFoundError:
     import pygloo as pgl
 from replay.models.base_rec import PartialFitMixin, HybridRecommender
+from replay.models.hnswlib import HnswlibMixin
+from replay.session_handler import State
 from replay.utils import unionify
 from scipy.sparse import csr_matrix, coo_matrix
 import torch.distributed as dist
@@ -20,9 +29,16 @@ import torch.distributed as dist
 LOSSES = ['warp', 'bpr']
 CYTHON_DTYPE = np.float32
 PORT = 21235
+REC_SCHEMA = StructType(
+    [
+        StructField("user_idx", IntegerType()),
+        StructField("item_idx", IntegerType()),
+        StructField("relevance", DoubleType()),
+    ]
+)
 
 
-class LightFMWrap(HybridRecommender, PartialFitMixin):
+class LightFMWrap(HybridRecommender, PartialFitMixin, HnswlibMixin):
     def __init__(
             self,
             no_components: int = 10,
@@ -37,6 +53,8 @@ class LightFMWrap(HybridRecommender, PartialFitMixin):
             random_state: Optional[int] = None,
             tcp_port: int = PORT,
             connection_timeout: int = 30,
+            hnswlib_params: Optional[dict] = None,
+            num_epochs: int = 30,
     ):
         self.no_components = no_components
         self.learning_schedule = learning_schedule
@@ -48,11 +66,87 @@ class LightFMWrap(HybridRecommender, PartialFitMixin):
         self.random_state = random_state
         self.tcp_port = tcp_port
         self.connection_timeout = connection_timeout
+        self._hnswlib_params = hnswlib_params
 
         self.model = None
         self.world_size = None
+        self._num_epochs = num_epochs
 
         self._check_parameters()
+
+    @property
+    def num_epochs(self):
+        return self._num_epochs
+
+    @num_epochs.setter
+    def num_epochs(self, value):
+        if value <= 0:
+            raise ValueError("Defined number of training epochs must be positive.")
+        self._num_epochs = value
+
+    @property
+    def _use_ann(self) -> bool:
+        return self._hnswlib_params is not None
+
+    def _get_vectors_to_build_ann(self, log: DataFrame) -> DataFrame:
+        item_vectors, _ = self.get_features(
+            log.select("item_idx").distinct()
+        )
+        return item_vectors
+
+    def _get_vectors_to_infer_ann_inner(
+            self, log: DataFrame, users: DataFrame
+    ) -> DataFrame:
+        user_vectors, _ = self.get_features(users)
+        return user_vectors
+
+    def _get_ann_infer_params(self) -> Dict[str, Any]:
+        return {
+            "features_col": "user_factors",
+            "params": self._hnswlib_params,
+            "index_dim": self.model.no_components + 1,
+        }
+
+    def _get_ann_build_params(self, log: DataFrame) -> Dict[str, Any]:
+        self.num_elements = log.select("item_idx").distinct().count()
+        return {
+            "features_col": "item_factors",
+            "params": self._hnswlib_params,
+            "dim": self.model.no_components + 1,
+            "num_elements": self.num_elements,
+            "id_col": "item_idx",
+        }
+
+    def _get_features(
+        self, ids: DataFrame, features: Optional[DataFrame] = None
+    ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        entity = "user" if "user_idx" in ids.columns else "item"
+        if features:
+            self._convert_features_to_csr(features)
+        _biases, _embeddings = self.model.__getattribute__(f'get_{entity}_representations')(features=features)
+        # (n_entity x 1), (n_entity x no_components)
+        representations = np.concatenate([_embeddings, _biases.reshape(-1, 1)], axis=1)
+
+        # TODO schema for numpy
+        schema = StructType(
+            [
+                StructField(f"{entity}_idx", IntegerType()),
+                StructField(f"{entity}_factors", ArrayType(DoubleType()))
+            ]
+        )
+
+        lightfm_factors = State().session.createDataFrame(
+            list(zip(range(representations.shape[0]), representations)),
+            schema=schema,
+            # schema=[
+            #     f"{entity}_idx",
+            #     f"{entity}_factors",
+            # ],
+        )
+        return (
+            lightfm_factors.join(ids, how="right", on=f"{entity}_idx"),
+            self.model.no_components + 1, # for bias
+        )
 
     @property
     def _init_args(self):
@@ -71,18 +165,58 @@ class LightFMWrap(HybridRecommender, PartialFitMixin):
             "connection_timeout": self.connection_timeout,
         }
 
+    def _predict_selected_pairs(
+        self,
+        pairs: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+    ):
+        def predict_by_user(pandas_df: pd.DataFrame) -> pd.DataFrame:
+            pandas_df["relevance"] = model.predict(
+                user_ids=pandas_df["user_idx"].to_numpy(),
+                item_ids=pandas_df["item_idx"].to_numpy(),
+                item_features=csr_item_features,
+                user_features=csr_user_features,
+            )
+            return pandas_df
+
+        model = self.model
+
+        # TODO check assertions
+        if self.can_predict_cold_users and user_features is None:
+            raise ValueError("User features are missing for predict")
+        if self.can_predict_cold_items and item_features is None:
+            raise ValueError("Item features are missing for predict")
+
+        csr_item_features = self._convert_features_to_csr(item_features) # pairs.select("item_idx").distinct(),
+        csr_user_features = self._convert_features_to_csr(user_features) # pairs.select("user_idx").distinct(),
+
+        return pairs.groupby("user_idx").applyInPandas(
+            predict_by_user, REC_SCHEMA
+        )
+
     def _predict(
-            self,
-            log: Optional[DataFrame],
-            k: int,
-            users: DataFrame,
-            items: DataFrame,
-            user_features: Optional[DataFrame] = None,
-            item_features: Optional[DataFrame] = None,
-            filter_seen_items: bool = True,
+        self,
+        log: DataFrame,
+        k: int,
+        users: DataFrame,
+        items: DataFrame,
+        user_features: Optional[DataFrame] = None,
+        item_features: Optional[DataFrame] = None,
+        filter_seen_items: bool = True,
     ) -> DataFrame:
-        # TODO: get from lightfmwrap
-        raise NotImplementedError
+        # TODO question: do we need to get top k? optimization
+        users = users.distinct()
+        items = items.distinct()
+        pairs = users.crossJoin(items)
+        predict = self._predict_selected_pairs(pairs, user_features, item_features)
+        if filter_seen_items:
+            return predict.join(
+                log,
+                [predict.user_idx == log.user_idx, predict.item_idx == log.item_idx],
+                "leftanti"
+            )
+        return predict
 
     def _initialize_world_size_and_threads(self):
         sc = SparkSession.getActiveSession().sparkContext
@@ -257,8 +391,6 @@ class LightFMWrap(HybridRecommender, PartialFitMixin):
             user_features: Optional[DataFrame] = None,
             item_features: Optional[DataFrame] = None,
             previous_log: Optional[DataFrame] = None,
-            num_epochs: int = 1,
-            verbose: bool = False,
     ) -> None:
         if not self.model:
             self._initialize_model()  # TODO question: can the previous log be passed in newly initialized model?
@@ -362,7 +494,7 @@ class LightFMWrap(HybridRecommender, PartialFitMixin):
             self._initialize_local_state()
 
             # Each Spark executor runs on interaction matrix partition
-            for _ in self.model._progress(num_epochs, verbose=verbose):
+            for _ in self.model._progress(self._num_epochs, verbose=False):
                 self._run_epoch_spark(
                     item_features,
                     user_features,
@@ -381,7 +513,6 @@ class LightFMWrap(HybridRecommender, PartialFitMixin):
 
     def copy_representations_for_update(self) -> None:
         """ Create local copy of the item and user representations. """
-
         self.local_item_features = self.model.item_embeddings.copy()
         self.local_item_biases = self.model.item_biases.copy()
         self.local_user_features = self.model.user_embeddings.copy()
