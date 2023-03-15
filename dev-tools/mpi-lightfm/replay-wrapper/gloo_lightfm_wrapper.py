@@ -124,28 +124,26 @@ class LightFMWrap(HybridRecommender, PartialFitMixin, HnswlibMixin):
         if features:
             self._convert_features_to_csr(features)
         _biases, _embeddings = self.model.__getattribute__(f'get_{entity}_representations')(features=features)
-        # (n_entity x 1), (n_entity x no_components)
+
+        # Concatenate embeddings and biases to get vector representations of <entities>
         representations = np.concatenate([_embeddings, _biases.reshape(-1, 1)], axis=1)
 
-        # TODO schema for numpy
-        schema = StructType(
-            [
-                StructField(f"{entity}_idx", IntegerType()),
-                StructField(f"{entity}_factors", ArrayType(DoubleType()))
-            ]
-        )
+        def _iterator_representations(representations_arr: np.ndarray):
+            for entity_idx in range(representations_arr.shape[0]):
+                yield (entity_idx, representations_arr[entity_idx].tolist())
 
         lightfm_factors = State().session.createDataFrame(
-            list(zip(range(representations.shape[0]), representations)),
-            schema=schema,
-            # schema=[
-            #     f"{entity}_idx",
-            #     f"{entity}_factors",
-            # ],
+            _iterator_representations(representations),
+            schema=StructType(
+                [
+                    StructField(f"{entity}_idx", IntegerType()),
+                    StructField(f"{entity}_factors", ArrayType(DoubleType()))
+                ]
+            ),
         )
         return (
             lightfm_factors.join(ids, how="right", on=f"{entity}_idx"),
-            self.model.no_components + 1, # for bias
+            self.model.no_components + 1,
         )
 
     @property
