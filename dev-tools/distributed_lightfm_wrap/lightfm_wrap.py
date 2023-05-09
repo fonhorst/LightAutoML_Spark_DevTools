@@ -206,6 +206,8 @@ class DistributedLightFMWrap(HybridRecommender, PartialFitMixin, HnswlibMixin):
     def _get_features(
         self, ids: DataFrame, features: Optional[DataFrame],
     ) -> Tuple[Optional[DataFrame], Optional[int]]:
+        if self.model is None:
+            raise AttributeError('Model has not been fitted yet.')
         entity = "user" if "user_idx" in ids.columns else "item"
         if features:
             features = self._convert_features_to_csr(
@@ -218,16 +220,18 @@ class DistributedLightFMWrap(HybridRecommender, PartialFitMixin, HnswlibMixin):
         # Concatenate embeddings and biases to get vector representations of <entities>
         # representations = np.concatenate([_embeddings, _biases.reshape(-1, 1)], axis=1)
 
-        def _representations(representations_arr: np.ndarray):
+        def _representations(representations_arr: np.ndarray, biases_arr: np.ndarray):
+            biases_arr = biases_arr.tolist()
             for entity_idx in range(representations_arr.shape[0]):
-                yield (entity_idx, representations_arr[entity_idx].tolist())
+                yield entity_idx, representations_arr[entity_idx].tolist(), biases_arr[entity_idx]
 
         lightfm_factors = State().session.createDataFrame(
-            _representations(representations),
+            _representations(representations, _biases),
             schema=StructType(
                 [
                     StructField(f"{entity}_idx", IntegerType()),
                     StructField(f"{entity}_factors", ArrayType(DoubleType())),
+                    StructField(f"{entity}_bias", DoubleType()),
                 ]
             ),
         )
@@ -412,26 +416,30 @@ class DistributedLightFMWrap(HybridRecommender, PartialFitMixin, HnswlibMixin):
         # Scale down dense features
         scaler_name = f"{entity}_feat_scaler"
         if self.__getattribute__(scaler_name) is None:
+            if not features_columns.size:
+                raise ValueError(f"features for {entity}s from log are absent")
             self.__setattr__(scaler_name, MinMaxScaler().fit(features_columns))
 
-        features_dense = self.__getattribute__(scaler_name).transform(
-            features_columns
-        )
+        if features_columns.size:
+            features_dense = self.__getattribute__(scaler_name).transform(
+                features_columns
+            )
 
-        features = sp.csr_matrix(
-            (
-                features_dense.ravel(),
+            features = sp.csr_matrix(
                 (
-                    np.repeat(feature_entity_ids, number_of_features),
-                    np.tile(
-                        np.arange(number_of_features),
-                        feature_entity_ids.shape[0],
+                    features_dense.ravel(),
+                    (
+                        np.repeat(feature_entity_ids, number_of_features),
+                        np.tile(
+                            np.arange(number_of_features),
+                            feature_entity_ids.shape[0],
+                        ),
                     ),
                 ),
-            ),
-            shape=(num_seen_entities + num_cold_entities, number_of_features),
-        )
-
+                shape=(num_seen_entities + num_cold_entities, number_of_features),
+            )
+        else:
+            features = sp.csr_matrix((num_seen_entities + num_cold_entities, number_of_features))
         return sp.hstack([sparse_features, features])
 
     def _fit(
