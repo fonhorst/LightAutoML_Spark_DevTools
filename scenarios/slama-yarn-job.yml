@@ -17,15 +17,13 @@ spec:
         - name: hadoop-configs
           configMap:
             name: hadoop-configs
-#            items:
-#              - key: core-site.xml
-#                path: core-site.xml
-#              - key: yarn-site.xml
-#                path: yarn-site.xml
       containers:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
+        volumeMounts:
+          - name: hadoop-configs
+            mountPath: /etc/hadoop
         args: ["/src/examples-spark/lgbm-parallel.py"]
 #        args: ["/src/examples-spark/reader-only.py"]
 #        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
@@ -57,8 +55,6 @@ spec:
             value: "ml25m_010p_2stage"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
-        volumeMounts:
-          - name: hadoop-configs
-            mountPath: /etc/hadoop
+
       restartPolicy: Never
   backoffLimit: 0

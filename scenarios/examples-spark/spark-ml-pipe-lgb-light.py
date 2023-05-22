@@ -59,33 +59,33 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
         ml_pipe = SparkMLPipeline(
             ml_algos=[spark_ml_algo],
             pre_selection=None,
-            features_pipeline=spark_features_pipeline,
+            features_pipeline=None,#spark_features_pipeline,
             post_selection=None
         )
 
         with log_exec_timer("fit_time") as fit_time:
             oof_preds_ds = ml_pipe.fit_predict(iterator)
-            oof_score = score(oof_preds_ds[:, spark_ml_algo.prediction_feature])
-
-            logger.info(f"OOF score: {oof_score}")
-            mlflow.log_metric("oof_score", oof_score)
-
-        # 1. first way (LAMA API)
-        with log_exec_timer("predict") as predict_time:
-            test_sds = sreader.read(test_df, add_array_attrs=True)
-            test_preds_ds = ml_pipe.predict(test_sds)
-            test_score = score(test_preds_ds[:, spark_ml_algo.prediction_feature])
-
-            logger.info(f"Test score (#1 way): {test_score}")
-            mlflow.log_metric("test_score", test_score)
-
-        model_path = f"/tmp/models/spark-ml-pipe-lgb-light-{uid}"
-        # 2. second way (Spark ML API, save-load-predict)
-        with log_exec_timer("model_saving") as save_time:
-            transformer = PipelineModel(stages=[sreader.transformer(add_array_attrs=True), ml_pipe.transformer()])
-            transformer.write().overwrite().save(model_path)
-
-            mlflow.log_param("model_path", model_path)
+        #     oof_score = score(oof_preds_ds[:, spark_ml_algo.prediction_feature])
+        #
+        #     logger.info(f"OOF score: {oof_score}")
+        #     mlflow.log_metric("oof_score", oof_score)
+        #
+        # # 1. first way (LAMA API)
+        # with log_exec_timer("predict") as predict_time:
+        #     test_sds = sreader.read(test_df, add_array_attrs=True)
+        #     test_preds_ds = ml_pipe.predict(test_sds)
+        #     test_score = score(test_preds_ds[:, spark_ml_algo.prediction_feature])
+        #
+        #     logger.info(f"Test score (#1 way): {test_score}")
+        #     mlflow.log_metric("test_score", test_score)
+        #
+        # model_path = f"/tmp/models/spark-ml-pipe-lgb-light-{uid}"
+        # # 2. second way (Spark ML API, save-load-predict)
+        # with log_exec_timer("model_saving") as save_time:
+        #     transformer = PipelineModel(stages=[sreader.transformer(add_array_attrs=True), ml_pipe.transformer()])
+        #     transformer.write().overwrite().save(model_path)
+        #
+        #     mlflow.log_param("model_path", model_path)
 
     logger.info("Finished")
 
