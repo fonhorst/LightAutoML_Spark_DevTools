@@ -53,7 +53,9 @@ spec:
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "ml25m_010p_2stage"
+            value: "used_cars_dataset_1x"
+#            value: "lama_test_dataset"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
-
+      restartPolicy: Never
+  backoffLimit: 0
