@@ -1,38 +1,34 @@
 import functools
 import logging
-import math
 import os
 import pickle
-import shutil
 import threading
 import warnings
 from contextlib import contextmanager
-from copy import deepcopy
-from enum import Enum
 from functools import lru_cache
 from multiprocessing.pool import ThreadPool
 from typing import Tuple, List, Dict, Any, Optional, Iterator
 
+import math
 # noinspection PyUnresolvedReferences
 from attr import dataclass
+from copy import deepcopy
+from enum import Enum
 from pyspark import inheritable_thread_target, SparkContext
+from pyspark import keyword_only
+from pyspark.ml.common import inherit_doc
 from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.wrapper import JavaTransformer
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
-from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
-
-from examples_utils import get_spark_session, get_dataset_attrs, prepare_test_and_train, handle_if_2stage
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatures
 from sparklightautoml.reader.base import SparkToSparkReader
 from sparklightautoml.tasks.base import SparkTask
-from sparklightautoml.transformers.scala_wrappers.balanced_union_partitions_coalescer import \
-    BalancedUnionPartitionsCoalescerTransformer
 from sparklightautoml.utils import log_exec_timer
-from pyspark import keyword_only
-from pyspark.ml.common import inherit_doc
-from pyspark.ml.wrapper import JavaTransformer
+from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
 
+from examples_utils import get_spark_session, get_dataset, prepare_test_and_train
 
 logger = logging.getLogger(__name__)
 
@@ -314,9 +310,9 @@ class ParallelExperiment:
 
         seed = 42
         cv = self.prepare_fold_num
-        path, task_type, roles, dtype = get_dataset_attrs(self.dataset_name)
+        dataset = get_dataset(self.dataset_name)
 
-        train_df, test_df = prepare_test_and_train(self.dataset_name, self.spark, path, seed)
+        train_df, test_df = prepare_test_and_train(dataset, seed)
         # train_df, test_df = handle_if_2stage(self.dataset_name, train_df), handle_if_2stage(self.dataset_name, test_df)
 
         task = SparkTask(task_type)

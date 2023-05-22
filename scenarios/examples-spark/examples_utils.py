@@ -1,8 +1,9 @@
 import inspect
 import os
-from typing import Tuple, Optional, Union, List, Callable
+from typing import Tuple, Optional, Union, List, Callable, Dict, Any
 
 import mlflow
+from dataclasses import dataclass, field
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
 from sparklightautoml.dataset import persistence
@@ -11,6 +12,25 @@ from sparklightautoml.utils import SparkDataFrame, log_exec_timer
 
 BUCKET_NUMS = 16
 PERSISTENCE_MANAGER_ENV_VAR = "PERSISTENCE_MANAGER"
+BASE_DATASETS_PATH = "file:///opt/spark_data/"
+
+
+@dataclass(frozen=True)
+class Dataset:
+    path: str
+    task_type: str
+    roles: Dict[str, Any]
+    dtype: Dict[str, str] = field(default_factory=dict)
+    file_format: str = 'csv'
+    file_format_options: Dict[str, Any] = field(default_factory=lambda: {"header": True, "escape": "\""})
+
+    def load(self) -> SparkDataFrame:
+        spark = SparkSession.getActiveSession()
+        return spark.read.format(self.file_format).options(**self.file_format_options).load(self.path)
+
+
+def ds_path(rel_path: str) -> str:
+    return os.path.join(BASE_DATASETS_PATH, rel_path)
 
 
 used_cars_params = {
@@ -31,130 +51,130 @@ used_cars_params = {
         'is_oemcpo': 'str', 'salvage': 'str', 'theft_title': 'str', 'franchise_dealer': 'str'
     }
 }
-
 DATASETS = {
-    "used_cars_dataset": {
-            "path": "file:///opt/spark_data/small_used_cars_data.csv",
-            **used_cars_params
-    },
-
-    "used_cars_dataset_1x": {
-        "path": "file:///opt/spark_data/derivative_datasets/1x_dataset.csv",
+    "used_cars_dataset": Dataset(
+        path=ds_path("small_used_cars_data.csv"),
         **used_cars_params
-    },
-
-    "used_cars_dataset_4x": {
-        "path": "file:///opt/spark_data/derivative_datasets/4x_dataset.csv",
+    ),
+    "used_cars_dataset_1x": Dataset(
+        path=ds_path("derivative_datasets/1x_dataset.csv"),
         **used_cars_params
-    },
-
+    ),
+    "used_cars_dataset_4x": Dataset(
+        path=ds_path("derivative_datasets/4x_dataset.csv"),
+        **used_cars_params
+    ),
+    "lama_test_dataset": Dataset(
+        path=ds_path("sampled_app_train.csv"),
+        task_type="binary",
+        roles={"target": "TARGET", "drop": ["SK_ID_CURR"]}
+    ),
     # https://www.openml.org/d/4549
-    "buzz_dataset": {
-        "path": "file:///opt/spark_data/Buzzinsocialmedia_Twitter_25k.csv",
-        "task_type": "reg",
-        "roles": {"target": "Annotation"},
-    },
-
-    "lama_test_dataset": {
-        "path": "file:///opt/spark_data/sampled_app_train.csv",
-        "task_type": "binary",
-        "roles": {"target": "TARGET", "drop": ["SK_ID_CURR"]},
-    },
-
+    "buzz_dataset": Dataset(
+        path=ds_path("Buzzinsocialmedia_Twitter_25k.csv"),
+        task_type="binary",
+        roles={"target": "TARGET", "drop": ["SK_ID_CURR"]}
+    ),
     # https://www.openml.org/d/734
-    "ailerons_dataset": {
-        "path": "file:///opt/spark_data/ailerons.csv",
-        "task_type": "binary",
-        "roles": {"target": "binaryClass"},
-    },
-
+    "ailerons_dataset": Dataset(
+        path=ds_path("ailerons.csv"),
+        task_type="binary",
+        roles={"target": "binaryClass"}
+    ),
     # https://www.openml.org/d/382
-    "ipums_97": {
-        "path": "file:///opt/spark_data/ipums_97.csv",
-        "task_type": "multiclass",
-        "roles": {"target": "movedin"},
-    },
+    "ipums_97": Dataset(
+        path=ds_path("ipums_97.csv"),
+        task_type="multiclass",
+        roles={"target": "movedin"}
+    ),
 
-    "company_bankruptcy_dataset": {
-        "path": "file:///opt/spark_data/company_bankruptcy_prediction_data.csv",
-        "task_type": "binary",
-        "roles": {"target": "Bankrupt?"},
-    },
+    "company_bankruptcy_dataset": Dataset(
+        path=ds_path("company_bankruptcy_prediction_data.csv"),
+        task_type="binary",
+        roles={"target": "Bankrupt?"}
+    ),
 
-    "msd_2stage": {
-        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/msd_first_level_80_20/combined_train_4models.parquet",
-        "task_type": "binary",
-        "roles": {"target": "target", "drop": ["user_idx", "item_idx"]},
-    },
+    "msd_2stage": Dataset(
+        path="hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/msd_first_level_80_20/combined_train_4models.parquet",
+        task_type="binary",
+        roles={"target": "target", "drop": ["user_idx", "item_idx"]},
+        file_format="parquet",
+        file_format_options={}
+    ),
 
-    "ml25m_2stage": {
-        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models.parquet",
-        "task_type": "binary",
-        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
-        #KeyError: 'timestamp
-        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
+    "ml25m_2stage": Dataset(
+        path="hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models.parquet",
+        task_type="binary",
+        # SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        # KeyError: 'timestamp
+        roles={"target": "target", "drop": ["user_idx", "item_idx",
+                                            "i_max_interact_date", "u_min_interact_date",
+                                            "u_max_interact_date", "i_min_interact_date"]},
+        file_format="parquet",
+        file_format_options={}
+    ),
+
+    "ml25m_0035p_2stage": Dataset(
+        path="hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_035percent.parquet",
+        task_type="binary",
+        # SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        # KeyError: 'timestamp
+        roles={"target": "target", "drop": ["user_idx", "item_idx",
+                                            "i_max_interact_date", "u_min_interact_date",
+                                            "u_max_interact_date", "i_min_interact_date"]},
+        file_format="parquet",
+        file_format_options={}
+    ),
+
+    "ml25m_010p_2stage": Dataset(
+        path="hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_10percent.parquet",
+        task_type="binary",
+        # SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        # KeyError: 'timestamp
+        roles={"target": "target", "drop": ["user_idx", "item_idx",
+                                            "i_max_interact_date", "u_min_interact_date",
+                                            "u_max_interact_date", "i_min_interact_date"]},
+        file_format="parquet",
+        file_format_options={}
+    ),
+
+    "ml25m_035p_2stage": Dataset(
+        path="hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_35percent.parquet",
+        task_type="binary",
+        # SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
+        # KeyError: 'timestamp
+        roles={"target": "target", "drop": ["user_idx", "item_idx",
                                                "i_max_interact_date", "u_min_interact_date",
                                                "u_max_interact_date", "i_min_interact_date"]},
-    },
-
-    "ml25m_0035p_2stage": {
-        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_035percent.parquet",
-        "task_type": "binary",
-        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
-        #KeyError: 'timestamp
-        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
-                                               "i_max_interact_date", "u_min_interact_date",
-                                               "u_max_interact_date", "i_min_interact_date"]},
-    },
-
-    "ml25m_010p_2stage": {
-        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_10percent.parquet",
-        "task_type": "binary",
-        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
-        #KeyError: 'timestamp
-        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
-                                               "i_max_interact_date", "u_min_interact_date",
-                                               "u_max_interact_date", "i_min_interact_date"]},
-    },
-
-    "ml25m_035p_2stage": {
-        "path": "hdfs://node21.bdcl:9000/opt/spark_data/replay/experiments/ml25m_first_level_80_20/combined_train_4models_35percent.parquet",
-        "task_type": "binary",
-        #SparkLightAutoML-0.3.0-py3-none-any.whl/sparklightautoml/reader/base.py", line 565, in _guess_role
-        #KeyError: 'timestamp
-        "roles": {"target": "target", "drop": ["user_idx", "item_idx",
-                                               "i_max_interact_date", "u_min_interact_date",
-                                               "u_max_interact_date", "i_min_interact_date"]},
-    },
+        file_format="parquet",
+        file_format_options={}
+    )
 }
 
 
-def get_dataset_attrs(name: str):
-    return (
-        DATASETS[name]['path'],
-        DATASETS[name]['task_type'],
-        DATASETS[name]['roles'],
-        # to assure that LAMA correctly interprets certain columns as categorical
-        DATASETS[name].get('dtype', dict()),
-    )
+def get_dataset(name: str) -> Dataset:
+    assert name in DATASETS, f"Unknown dataset: {name}. Known datasets: {list(DATASETS.keys())}"
+    return DATASETS[name]
 
 
-def prepare_test_and_train(dataset_name: str, spark: SparkSession, path: str, seed: int) -> Tuple[SparkDataFrame, SparkDataFrame]:
+def prepare_test_and_train(
+        dataset: Dataset,
+        seed: int,
+        test_size: float = 0.2
+) -> Tuple[SparkDataFrame, SparkDataFrame]:
+    assert 0 <= test_size <= 1
+
+    spark = SparkSession.getActiveSession()
+
     execs = int(spark.conf.get('spark.executor.instances', '1'))
     cores = int(spark.conf.get('spark.executor.cores', '8'))
 
-    if path.endswith('.parquet'):
-        data = spark.read.parquet(path)
-        data = data.withColumn('target', sf.col('target').astype('int'))
-    else:
-        data = spark.read.csv(path, header=True, escape="\"")
-
-    data = handle_if_2stage(dataset_name, data)
+    data = dataset.load()
 
     data = data.repartition(execs * cores).cache()
     data.write.mode('overwrite').format('noop').save()
 
-    train_data, test_data = data.randomSplit([0.8, 0.2], seed)
+    train_data, test_data = data.randomSplit([1 - test_size, test_size], seed)
     train_data = train_data.cache()
     test_data = test_data.cache()
     train_data.write.mode('overwrite').format('noop').save()

@@ -24,7 +24,8 @@ spec:
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop
-        args: ["/src/examples-spark/lgbm-parallel.py"]
+        args: ["/src/examples-spark/feature-processing-only.py"]
+#        args: ["/src/examples-spark/lgbm-parallel.py"]
 #        args: ["/src/examples-spark/reader-only.py"]
 #        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
 #        envFrom:

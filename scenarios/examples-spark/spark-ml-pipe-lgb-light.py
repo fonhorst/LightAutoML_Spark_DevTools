@@ -3,9 +3,6 @@ import os
 import uuid
 
 import mlflow
-from pyspark.ml import PipelineModel
-from pyspark.sql import functions as F
-from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
 from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatures
 from sparklightautoml.pipelines.ml.base import SparkMLPipeline
@@ -16,7 +13,7 @@ from sparklightautoml.validation.iterators import SparkFoldsIterator
 
 from examples_utils import get_persistence_manager, check_executors_count, \
     log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco, handle_if_2stage
-from examples_utils import get_spark_session, prepare_test_and_train, get_dataset_attrs
+from examples_utils import get_spark_session, prepare_test_and_train, get_dataset
 
 uid = uuid.uuid4()
 log_filename = f'/tmp/slama-{uid}.log'
@@ -35,21 +32,21 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     log_session_params_to_mlflow()
     check_executors_count()
 
-    path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
+    dataset = get_dataset(dataset_name)
 
     persistence_manager = get_persistence_manager(run_id=str(uid))
 
     with log_exec_timer("full_time"):
-        train_df, test_df = prepare_test_and_train(dataset_name, spark, path, seed)
+        train_df, test_df = prepare_test_and_train(dataset, seed)
 
         train_df = handle_if_2stage(dataset_name, train_df)
         test_df = handle_if_2stage(dataset_name, test_df)
 
-        task = SparkTask(task_type)
+        task = SparkTask(dataset.task_type)
         score = task.get_dataset_metric()
 
         sreader = SparkToSparkReader(task=task, cv=cv, advanced_roles=False, samples=10_000)
-        sdataset = sreader.fit_read(train_df, roles=roles, persistence_manager=persistence_manager)
+        sdataset = sreader.fit_read(train_df, roles=dataset.roles, persistence_manager=persistence_manager)
 
         iterator = SparkFoldsIterator(sdataset).convert_to_holdout_iterator()
 

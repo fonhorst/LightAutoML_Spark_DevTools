@@ -3,14 +3,13 @@ import os
 import uuid
 
 import mlflow
-from pyspark.sql import functions as sf
 from sparklightautoml.reader.base import SparkToSparkReader
 from sparklightautoml.tasks.base import SparkTask as SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 
 from examples_utils import check_executors_count, \
     log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco, handle_if_2stage
-from examples_utils import get_spark_session, get_dataset_attrs
+from examples_utils import get_spark_session, get_dataset
 
 uid = uuid.uuid4()
 log_filename = f'/tmp/slama-{uid}.log'
@@ -29,17 +28,17 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
     log_session_params_to_mlflow()
     check_executors_count()
 
-    path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
+    dataset = get_dataset(dataset_name)
 
     # persistence_manager = get_persistence_manager(run_id=str(uid))
 
     with log_exec_timer("full_time"):
-        train_df = spark.read.parquet(path)
+        train_df = dataset.load()
 
         train_df = handle_if_2stage(dataset_name, train_df)
 
-        sreader = SparkToSparkReader(task=SparkTask(task_type), cv=cv, samples=10_000, advanced_roles=False)
-        sreader.fit_read(train_df, roles=roles)#, persistence_manager=persistence_manager)
+        sreader = SparkToSparkReader(task=SparkTask(dataset.task_type), cv=cv, samples=10_000, advanced_roles=False)
+        sreader.fit_read(train_df, roles=dataset.roles)
 
     logger.info("Finished")
 

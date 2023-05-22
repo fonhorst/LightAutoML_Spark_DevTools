@@ -10,7 +10,7 @@ from sparklightautoml.dataset.base import SparkDataset, PersistenceLevel
 from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer as regular_log_exec_timer
 
-from examples_utils import get_dataset_attrs, prepare_test_and_train, get_spark_session, \
+from examples_utils import get_dataset, prepare_test_and_train, get_spark_session, \
     mlflow_log_exec_timer as log_exec_timer, mlflow_deco, log_session_params_to_mlflow, check_executors_count
 from examples_utils import get_persistence_manager
 
@@ -39,7 +39,7 @@ def main(cv: int, seed: int, dataset_name: str):
     # 3. use_algos = [["linear_l2"]]
     # 4. use_algos = [["lgb", "linear_l2"], ["lgb"]]
     use_algos = [["lgb", "linear_l2"], ["lgb"]]
-    path, task_type, roles, dtype = get_dataset_attrs(dataset_name)
+    dataset = get_dataset(dataset_name)
 
     persistence_manager = get_persistence_manager(run_id=str(uid))
     # Alternative ways to define persistence_manager
@@ -48,8 +48,8 @@ def main(cv: int, seed: int, dataset_name: str):
 
     with log_exec_timer("full"):
         with log_exec_timer("fit") as train_timer:
-            task = SparkTask(task_type)
-            train_data, test_data = prepare_test_and_train(dataset_name, spark, path, seed)
+            task = SparkTask(dataset.task_type)
+            train_data, test_data = prepare_test_and_train(dataset, seed)
 
             test_data_dropped = test_data
 
@@ -76,7 +76,7 @@ def main(cv: int, seed: int, dataset_name: str):
 
             oof_predictions = automl.fit_predict(
                 train_data,
-                roles=roles,
+                roles=dataset.roles,
                 persistence_manager=persistence_manager
             )
 
@@ -117,7 +117,7 @@ def main(cv: int, seed: int, dataset_name: str):
             score = task.get_dataset_metric()
             test_metric_value = score(te_pred.select(
                 SparkDataset.ID_COLUMN,
-                sf.col(roles['target']).alias('target'),
+                sf.col(dataset.roles['target']).alias('target'),
                 sf.col(pred_column).alias('prediction')
             ))
 
@@ -140,7 +140,7 @@ def main(cv: int, seed: int, dataset_name: str):
             score = task.get_dataset_metric()
             test_metric_value = score(te_pred.select(
                 SparkDataset.ID_COLUMN,
-                sf.col(roles['target']).alias('target'),
+                sf.col(dataset.roles['target']).alias('target'),
                 sf.col(pred_column).alias('prediction')
             ))
 
