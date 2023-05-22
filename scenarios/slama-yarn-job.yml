@@ -56,5 +56,3 @@ spec:
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
 
-      restartPolicy: Never
-  backoffLimit: 0

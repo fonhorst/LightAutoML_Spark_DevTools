@@ -173,7 +173,7 @@ metadata:
   name: yarn-nodemanager
 spec:
   serviceName: yarn-nms
-  replicas: 1
+  replicas: 6
   selector:
     matchLabels:
       app: yarn-nodemanager
