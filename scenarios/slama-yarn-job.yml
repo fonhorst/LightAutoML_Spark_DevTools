@@ -17,16 +17,16 @@ spec:
         - name: hadoop-configs
           configMap:
             name: hadoop-configs
-#            items:
-#              - key: core-site.xml
-#                path: core-site.xml
-#              - key: yarn-site.xml
-#                path: yarn-site.xml
       containers:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
         imagePullPolicy: Always
-        args: ["/src/examples-spark/tabular-preset-automl.py"]
+        volumeMounts:
+          - name: hadoop-configs
+            mountPath: /etc/hadoop
+        args: ["/src/examples-spark/lgbm-parallel.py"]
+#        args: ["/src/examples-spark/reader-only.py"]
+#        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
 #        envFrom:
 #          - configMapRef:
 #              name: hadoop-env
@@ -39,14 +39,20 @@ spec:
             value: "1"
           - name: EXECUTOR_INSTANCES
             value: "4"
+          - name: EXECUTOR_CORES
+            value: "6"
+          - name: MAX_JOB_PARALLELISM
+            value: "2"
+          - name: PREPARE_FOLD_NUM
+            value: "5"
+          - name: USE_FOLD_NUM
+            value: "2"
+          - name: PARALLELISM_MODE
+            value: "no_single_dataset_mode"
           - name: LOG_FILES_TO_MLFLOW
             value: "1"
           - name: DATASET
-            value: "used_cars_dataset_1x"
+            value: "ml25m_010p_2stage"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
-        volumeMounts:
-          - name: hadoop-configs
-            mountPath: /etc/hadoop
-      restartPolicy: Never
-  backoffLimit: 0
+

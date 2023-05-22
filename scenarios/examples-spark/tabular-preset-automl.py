@@ -49,7 +49,7 @@ def main(cv: int, seed: int, dataset_name: str):
     with log_exec_timer("full"):
         with log_exec_timer("fit") as train_timer:
             task = SparkTask(task_type)
-            train_data, test_data = prepare_test_and_train(spark, path, seed)
+            train_data, test_data = prepare_test_and_train(dataset_name, spark, path, seed)
 
             test_data_dropped = test_data
 
@@ -69,6 +69,7 @@ def main(cv: int, seed: int, dataset_name: str):
                 linear_l2_params={
                     'default_params': {'regParam': [1e-5]}
                 },
+                # reader_params={"cv": cv, "advanced_roles": False, "samples": 10_000},
                 reader_params={"cv": cv, "advanced_roles": False},
                 config_path="tabular_config.yml"
             )
