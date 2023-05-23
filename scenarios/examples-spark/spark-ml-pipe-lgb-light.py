@@ -3,6 +3,7 @@ import os
 import uuid
 
 import mlflow
+from pyspark.sql import SparkSession
 from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
 from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatures
 from sparklightautoml.pipelines.ml.base import SparkMLPipeline
@@ -12,7 +13,7 @@ from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
 from examples_utils import get_persistence_manager, check_executors_count, \
-    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, mlflow_deco, handle_if_2stage
+    log_session_params_to_mlflow, mlflow_log_exec_timer as log_exec_timer, initialize_environment, handle_if_2stage
 from examples_utils import get_spark_session, prepare_test_and_train, get_dataset
 
 uid = uuid.uuid4()
@@ -25,13 +26,11 @@ logger = logging.getLogger(__name__)
 # Run ./bin/download-datasets.sh to get required datasets into the folder.
 
 
-@mlflow_deco
-def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
-    spark = get_spark_session()
-
-    log_session_params_to_mlflow()
-    check_executors_count()
-
+@initialize_environment
+def main(spark: SparkSession):
+    seed = int(os.environ.get("SEED", "42"))
+    cv = int(os.environ.get("CV", "5"))
+    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     dataset = get_dataset(dataset_name)
 
     persistence_manager = get_persistence_manager(run_id=str(uid))
@@ -93,8 +92,6 @@ def main(cv: int, seed: int, dataset_name: str = "lama_test_dataset"):
         for handler in logger.handlers:
             handler.flush()
         mlflow.log_artifact(log_filename, "run.log")
-
-    check_executors_count()
 
 
 if __name__ == "__main__":

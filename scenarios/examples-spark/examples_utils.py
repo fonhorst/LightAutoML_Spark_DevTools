@@ -297,12 +297,16 @@ def check_executors_count():
 def log_session_params_to_mlflow():
     spark = SparkSession.getActiveSession()
 
-    mlflow.log_param("application_id", spark.sparkContext.applicationId)
-    mlflow.log_param("executors", spark.conf.get("spark.executor.instances", None))
-    mlflow.log_param("executor_cores", spark.conf.get("spark.executor.cores", None))
-    mlflow.log_param("executor_memory", spark.conf.get("spark.executor.memory", None))
-    mlflow.log_param("partitions_nums", spark.conf.get("spark.default.parallelism", None))
-    mlflow.log_param("bucket_nums", os.environ.get("BUCKET_NUMS", None))
+    mlflow.log_params({
+        "app_id": spark.sparkContext.applicationId,
+        "app_name": spark.sparkContext.appName,
+        "executors": spark.sparkContext.getConf().get("spark.executor.instances", "-1"),
+        "executor_cores": spark.sparkContext.getConf().get("spark.executor.cores", "-1"),
+        "executor_memory": spark.sparkContext.getConf().get("spark.executor.memory", "-1"),
+        "partitions_nums": spark.conf.get("spark.default.parallelism", None),
+        "bucket_nums": os.environ.get("BUCKET_NUMS", None)
+    })
+
     mlflow.log_dict(dict(spark.sparkContext.getConf().getAll()), "spark_conf.json")
 
 
@@ -368,20 +372,21 @@ class mlflow_log_exec_timer(log_exec_timer):
             mlflow.log_metric(self.name, self.duration)
 
 
-def mlflow_deco(main: Callable[[int, int, str], None]):
+def initialize_environment(main: Callable[[SparkSession], None]):
     def func():
+        spark = get_spark_session()
+        check_executors_count()
+
         log_to_mlflow = bool(int(os.environ.get("LOG_TO_MLFLOW", "0")))
-        dataset_name = os.environ.get("DATASET", "lama_test_dataset")
-        seed = int(os.environ.get("SEED", "42"))
-        cv = int(os.environ.get("CV", "5"))
 
         if log_to_mlflow:
             exp_id = os.environ.get("EXPERIMENT", None)
             assert exp_id, "EXPERIMENT should be set if LOG_TO_MLFLOW is true"
-            with mlflow.start_run(experiment_id=exp_id) as run:
-                main(cv, seed, dataset_name)
+            with mlflow.start_run(experiment_id=exp_id):
+                log_session_params_to_mlflow()
+                main(spark)
         else:
-            main(cv, seed, dataset_name)
+            main(spark)
 
     return func
 

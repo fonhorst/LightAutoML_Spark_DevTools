@@ -5,13 +5,14 @@ import uuid
 import mlflow
 import pyspark.sql.functions as sf
 from pyspark.ml import PipelineModel
+from pyspark.sql import SparkSession
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
 from sparklightautoml.dataset.base import SparkDataset, PersistenceLevel
 from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer as regular_log_exec_timer
 
 from examples_utils import get_dataset, prepare_test_and_train, get_spark_session, \
-    mlflow_log_exec_timer as log_exec_timer, mlflow_deco, log_session_params_to_mlflow, check_executors_count
+    mlflow_log_exec_timer as log_exec_timer, initialize_environment, log_session_params_to_mlflow, check_executors_count
 from examples_utils import get_persistence_manager
 
 uid = uuid.uuid4()
@@ -23,14 +24,11 @@ logger = logging.getLogger(__name__)
 # Run ./bin/download-datasets.sh to get required datasets into the folder.
 
 
-@mlflow_deco
-def main(cv: int, seed: int, dataset_name: str):
-    spark = get_spark_session()
-
-    assert spark is not None
-
-    log_session_params_to_mlflow()
-    check_executors_count()
+@initialize_environment
+def main(spark: SparkSession):
+    seed = int(os.environ.get("SEED", "42"))
+    cv = int(os.environ.get("CV", "5"))
+    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
 
     # Algos and layers to be used during automl:
     # For example:
@@ -164,8 +162,6 @@ def main(cv: int, seed: int, dataset_name: str):
 
     train_data.unpersist()
     test_data.unpersist()
-
-    check_executors_count()
 
     spark.stop()
 

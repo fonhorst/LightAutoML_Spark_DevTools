@@ -7,15 +7,15 @@ import os
 import mlflow
 from lightautoml.ml_algo.tuning.base import DefaultTuner
 from lightautoml.ml_algo.utils import tune_and_fit_predict
-from pyspark.sql import functions as sf
-from sparklightautoml.computations.manager import ParallelComputationsManager
+from pyspark.sql import functions as sf, SparkSession
+from sparklightautoml.computations.manager import ParallelComputationsManager, get_executors, get_executors_cores
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
 from sparklightautoml.ml_algo.linear_pyspark import SparkLinearLBFGS
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer
 from sparklightautoml.validation.iterators import SparkFoldsIterator
-from examples_utils import get_spark_session, mlflow_deco
+from examples_utils import get_spark_session, initialize_environment
 
 logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
 logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
@@ -25,12 +25,17 @@ logger = logging.getLogger(__name__)
 def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float, int] = 0.2) \
         -> Tuple[SparkDataset, SparkDataset]:
 
+    exec_count = len(get_executors())
+    exec_cores = get_executors_cores()
+
     if isinstance(test_slice_or_fold_num, float):
         assert 0 <= test_slice_or_fold_num <= 1
         train, test = dataset.data.randomSplit([1 - test_slice_or_fold_num, test_slice_or_fold_num])
     else:
-        train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num)
-        test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num)
+        train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num)\
+            .repartition(exec_count * exec_cores)
+        test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num)\
+            .repartition(exec_count * exec_cores)
 
     train_dataset, test_dataset = dataset.empty(), dataset.empty()
     train_dataset.set_data(train, dataset.features, roles=dataset.roles)
@@ -39,21 +44,12 @@ def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float,
     return train_dataset, test_dataset
 
 
-@mlflow_deco
-def main(cv: int, seed: int, dataset_name: str):
-    spark = get_spark_session()
-
-    mlflow.log_params({
-        "app_id": spark.sparkContext.applicationId,
-        "app_name": spark.sparkContext.appName,
-        "executors": spark.sparkContext.getConf().get("spark.executor.instances", "-1"),
-        "cores": spark.sparkContext.getConf().get("spark.executor.cores", "-1"),
-        "memory": spark.sparkContext.getConf().get("spark.executor.memory", "-1")
-    })
-
+@initialize_environment
+def main(spark: SparkSession):
     feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
     ml_algo_name = "linear_l2"  # linear_l2, lgb
     job_parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
+    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
 
     mlflow.log_params({

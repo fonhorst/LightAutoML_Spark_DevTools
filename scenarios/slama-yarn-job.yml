@@ -44,7 +44,7 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "8"
+            value: "4"
           - name: EXECUTOR_CORES
             value: "6"
           - name: DATASET
