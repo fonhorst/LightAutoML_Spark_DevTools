@@ -369,18 +369,21 @@ class mlflow_log_exec_timer(log_exec_timer):
 
 
 def mlflow_deco(main: Callable[[int, int, str], None]):
-    log_to_mlflow = bool(int(os.environ.get("LOG_TO_MLFLOW", "0")))
-    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
-    seed = int(os.environ.get("SEED", "42"))
-    cv = int(os.environ.get("CV", "5"))
+    def func():
+        log_to_mlflow = bool(int(os.environ.get("LOG_TO_MLFLOW", "0")))
+        dataset_name = os.environ.get("DATASET", "lama_test_dataset")
+        seed = int(os.environ.get("SEED", "42"))
+        cv = int(os.environ.get("CV", "5"))
 
-    if log_to_mlflow:
-        exp_id = os.environ.get("EXPERIMENT", None)
-        assert exp_id, "EXPERIMENT should be set if LOG_TO_MLFLOW is true"
-        with mlflow.start_run(experiment_id=exp_id) as run:
+        if log_to_mlflow:
+            exp_id = os.environ.get("EXPERIMENT", None)
+            assert exp_id, "EXPERIMENT should be set if LOG_TO_MLFLOW is true"
+            with mlflow.start_run(experiment_id=exp_id) as run:
+                main(cv, seed, dataset_name)
+        else:
             main(cv, seed, dataset_name)
-    else:
-        main(cv, seed, dataset_name)
+
+    return func
 
 
 def handle_if_2stage(dataset_name: str, df: SparkDataFrame) -> SparkDataFrame:

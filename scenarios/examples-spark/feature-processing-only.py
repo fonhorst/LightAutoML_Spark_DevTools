@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     # settings and data
     cv = 5
-    feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
+    feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     dataset = get_dataset(dataset_name)
     df = dataset.load()
