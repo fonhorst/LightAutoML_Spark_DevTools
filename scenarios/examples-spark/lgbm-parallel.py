@@ -359,17 +359,19 @@ class ParallelExperiment:
 
             with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Should be executed on {slot.pref_locs}", spark):
                 transformer = lgbm.fit(assembler.transform(full_data))
-            # metric_value = -1.0
-            preds_df = transformer.transform(assembler.transform(test_df))
 
-            score = SparkTask(task_type).get_dataset_metric()
-            metric_value = score(
-                preds_df.select(
-                    SparkDataset.ID_COLUMN,
-                    sf.col(target).alias('target'),
-                    sf.col(prediction_col).alias('prediction')
+            with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Scoring. "
+                                                               f"Should be executed on {slot.pref_locs}", spark):
+                # metric_value = -1.0
+                preds_df = transformer.transform(assembler.transform(test_df))
+                score = SparkTask(task_type).get_dataset_metric()
+                metric_value = score(
+                    preds_df.select(
+                        SparkDataset.ID_COLUMN,
+                        sf.col(target).alias('target'),
+                        sf.col(prediction_col).alias('prediction')
+                    )
                 )
-            )
 
             logger.info(f"Finished training the model for run #{run_num}")
 
@@ -406,7 +408,8 @@ def main():
     # load and prepare data
     ds = SparkDataset.load(
         path=dataset_path,
-        persistence_manager=PlainCachePersistenceManager()
+        persistence_manager=PlainCachePersistenceManager(),
+        partitions_num=len(get_executors()) * get_executors_cores()
     )
 
     exp = ParallelExperiment(
