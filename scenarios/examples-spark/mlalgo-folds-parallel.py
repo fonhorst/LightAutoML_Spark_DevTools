@@ -46,8 +46,10 @@ def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float,
 
 @initialize_environment
 def main(spark: SparkSession):
-    feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
-    ml_algo_name = "linear_l2"  # linear_l2, lgb
+    # available feat_pipe: linear, lgb_simple or lgb_adv
+    # available ml_algo: linear_l2, lgb
+    # feat_pipe, ml_algo_name = "linear", "linear_l2"
+    feat_pipe, ml_algo_name = "lgb_adv", "lgb"
     job_parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
@@ -74,7 +76,7 @@ def main(spark: SparkSession):
     computations_manager = ParallelComputationsManager(job_pool_size=job_parallelism)
     iterator = SparkFoldsIterator(train_ds)  # .convert_to_holdout_iterator()
     if ml_algo_name == "lgb":
-        ml_algo = SparkBoostLGBM(experimental_parallel_mode=True, computations_manager=computations_manager)
+        ml_algo = SparkBoostLGBM(experimental_parallel_mode=False, computations_manager=computations_manager)
     else:
         ml_algo = SparkLinearLBFGS(default_params={'regParam': [1e-5]}, computations_manager=computations_manager)
 
