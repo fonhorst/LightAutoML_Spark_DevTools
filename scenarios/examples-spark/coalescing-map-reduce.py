@@ -48,7 +48,8 @@ def main():
     for i, df in enumerate(coalesce_dfs):
         logger.info(f"Calculating for slot #{i}")
         with JobGroup(f"Agg slot #{i}", f"Should be executed on {pref_locs_for_dfs[i]}", spark):
-            df.agg(sf.count('*').alias('count')).write.format('noop').mode('overwrite').save()
+            # df.agg(sf.count('*').alias('count')).write.format('noop').mode('overwrite').save()
+            df.groupby('price').agg(sf.count('*').alias('count')).write.format('noop').mode('overwrite').save()
 
     # a trick for execution optimization
     # all_df = functools.reduce(lambda acc, df: acc.unionByName(df), coalesce_dfs)
