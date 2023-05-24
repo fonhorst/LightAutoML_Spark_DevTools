@@ -1,34 +1,32 @@
 import functools
 import logging
+import math
 import os
-import pickle
 import threading
 import warnings
 from contextlib import contextmanager
-from functools import lru_cache
-from multiprocessing.pool import ThreadPool
-from typing import Tuple, List, Dict, Any, Optional, Iterator
-
-import math
-# noinspection PyUnresolvedReferences
-from attr import dataclass
 from copy import deepcopy
 from enum import Enum
-from pyspark import inheritable_thread_target, SparkContext
+from multiprocessing.pool import ThreadPool
+from typing import Tuple, List, Optional, Iterator
+
+# noinspection PyUnresolvedReferences
+from attr import dataclass
+from pyspark import inheritable_thread_target
 from pyspark import keyword_only
 from pyspark.ml.common import inherit_doc
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.wrapper import JavaTransformer
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as sf
+from sparklightautoml.computations.manager import get_executors, get_executors_cores
 from sparklightautoml.dataset.base import SparkDataset
-from sparklightautoml.pipelines.features.lgb_pipeline import SparkLGBSimpleFeatures
-from sparklightautoml.reader.base import SparkToSparkReader
+from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.utils import log_exec_timer
 from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
 
-from examples_utils import get_spark_session, get_dataset, prepare_test_and_train
+from examples_utils import get_spark_session
 
 logger = logging.getLogger(__name__)
 
@@ -146,15 +144,6 @@ class PrefferedLocsPartitionCoalescerTransformer(JavaTransformer):
         )
 
 
-def executors() -> List[str]:
-    sc = SparkContext._active_spark_context
-    return sc._jvm.org.apache.spark.lightautoml.utils.SomeFunctions.executors()
-
-
-def cores_per_exec() -> int:
-    return 6
-
-
 @dataclass
 class DatasetSlot:
     train_df: DataFrame
@@ -177,21 +166,16 @@ class ParallelExperiment:
     def __init__(self,
                  spark: SparkSession,
                  dataset_name: str,
-                 prepare_fold_num: int = 5,
-                 use_fold_num: int = 5,
                  parallelism_mode: ParallelismMode = ParallelismMode.pref_locs):
         self.spark = spark
-        self.dataset_name = dataset_name
-        self.prepare_fold_num = prepare_fold_num
-        self.use_fold_num = use_fold_num
         self.parallelism_mode = parallelism_mode
         self.base_dataset_path = f"/opt/spark_data/parallel_slama_{dataset_name}"
         self.train_path = os.path.join(self.base_dataset_path, "train.parquet")
         self.test_path = os.path.join(self.base_dataset_path, "test.parquet")
         self.metadata_path = os.path.join(self.base_dataset_path, "metadata.parquet")
 
-        self._executors = list(executors())
-        self._cores_per_exec = cores_per_exec()
+        self._executors = get_executors()
+        self._cores_per_exec = get_executors_cores()
 
         # for ParallelismMode.pref_locs
         self._train_slots: Optional[List[DatasetSlot]] = None
@@ -200,9 +184,9 @@ class ParallelExperiment:
         # for ParallelismMode.no_single_dataset_mode
         self._slot: Optional[DatasetSlot] = None
 
-    def prepare_trains(self, max_job_parallelism: int):
-        train_df = self.train_dataset
-        test_df = self.test_dataset
+    def prepare_trains(self, dataset: SparkDataset, max_job_parallelism: int):
+        train_df = dataset.data
+        test_df = dataset.data
 
         if self.parallelism_mode == ParallelismMode.pref_locs:
             execs_per_job = max(1, math.floor(len(self._executors) / max_job_parallelism))
@@ -214,8 +198,8 @@ class ParallelExperiment:
 
             self._train_slots = []
 
-            def _coalesce_df_to_locs(df: DataFrame, pref_locs: List[str]):
-                df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locs).transform(df)
+            def _coalesce_df_to_locs(df: DataFrame, pref_locations: List[str]):
+                df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locations).transform(df)
                 df = df.cache()
                 df.write.mode('overwrite').format('noop').save()
                 return df
@@ -239,12 +223,12 @@ class ParallelExperiment:
                     free=True
                 ))
 
-                print(f"Pref lcos for slot #{i}: {pref_locs}")
-        elif self.parallelism_mode == ParallelismMode.no_single_dataset_mode :
+                logger.info(f"Pref lcos for slot #{i}: {pref_locs}")
+        elif self.parallelism_mode == ParallelismMode.no_single_dataset_mode:
             num_tasks_per_job = max(1, math.floor(len(self._executors) * self._cores_per_exec / max_job_parallelism))
             self._slot = DatasetSlot(
-                train_df=self.train_dataset,
-                test_df=self.test_dataset,
+                train_df=train_df,
+                test_df=test_df,
                 pref_locs=None,
                 num_tasks=num_tasks_per_job,
                 num_threads=-1,
@@ -261,8 +245,8 @@ class ParallelExperiment:
                               f"uneven allocations of cores between executors for a job")
 
             self._slot = DatasetSlot(
-                train_df=self.train_dataset,
-                test_df=self.test_dataset,
+                train_df=train_df,
+                test_df=test_df,
                 pref_locs=None,
                 num_tasks=num_tasks_per_job,
                 num_threads=num_threads_per_exec,
@@ -272,10 +256,10 @@ class ParallelExperiment:
 
         else:
             self._slot = DatasetSlot(
-                train_df=self.train_dataset,
-                test_df=self.test_dataset,
+                train_df=train_df,
+                test_df=test_df,
                 pref_locs=None,
-                num_tasks=self.train_dataset.rdd.getNumPartitions(),
+                num_tasks=train_df.rdd.getNumPartitions(),
                 num_threads=-1,
                 use_single_dataset_mode=True,
                 free=False
@@ -295,93 +279,12 @@ class ParallelExperiment:
         else:
             yield self._slot
 
-    def prepare_dataset(self, force=True):
-        logger.info(f"Preparing dataset {self.dataset_name}. "
-                    f"Writing train, test and metadata to {self.base_dataset_path}")
-        return
+    def train_model(self, dataset: SparkDataset, run_num: int) -> Tuple[int, float]:
+        logger.info(f"Starting to train the model for run #{run_num}")
 
-        # if os.path.exists(self.base_dataset_path) and not force:
-        #     logger.info(f"Found existing {self.base_dataset_path}. Skipping writing dataset files")
-        #     return
-        # elif os.path.exists(self.base_dataset_path):
-        #     logger.info(f"Found existing {self.base_dataset_path}. "
-        #                 f"Removing existing files because force is set to True")
-        #     shutil.rmtree(self.base_dataset_path)
-
-        seed = 42
-        cv = self.prepare_fold_num
-        dataset = get_dataset(self.dataset_name)
-
-        train_df, test_df = prepare_test_and_train(dataset, seed)
-        # train_df, test_df = handle_if_2stage(self.dataset_name, train_df), handle_if_2stage(self.dataset_name, test_df)
-
-        task = SparkTask(task_type)
-
-        sreader = SparkToSparkReader(task=task, cv=cv, advanced_roles=False)
-        spark_features_pipeline = SparkLGBSimpleFeatures()
-
-        # prepare train
-        train_sdataset = sreader.fit_read(train_df, roles=roles)
-        train_sdataset = spark_features_pipeline.fit_transform(train_sdataset)
-
-        # prepare test
-        test_sdataset = sreader.read(test_df, add_array_attrs=True)
-        test_sdataset = spark_features_pipeline.transform(test_sdataset)
-
-        # os.makedirs(self.base_dataset_path)
-
-        # train_sdataset.data.write.parquet("file://" + self.train_path)
-        # test_sdataset.data.write.parquet("file://" + self.test_path)
-
-        train_sdataset.data.write.parquet(self.train_path, mode='overwrite')
-        test_sdataset.data.write.parquet(self.test_path, mode='overwrite')
-
-        metadata = {
-            "roles": train_sdataset.roles,
-            "task_type": task_type,
-            "target": roles["target"]
-        }
-
-        SparkSession.getActiveSession()\
-            .createDataFrame([{"data": pickle.dumps(metadata)}]).write.parquet(self.metadata_path, mode='overwrite')
-
-        logger.info(f"Dataset {self.dataset_name} has been prepared.")
-
-    @property
-    @lru_cache
-    def train_dataset(self) -> DataFrame:
-        exec_instances = int(self.spark.conf.get("spark.executor.instances"))
-        cores_per_exec = int(self.spark.conf.get("spark.executor.cores"))
-        # df = self.spark.read.parquet("file://" + self.train_path).repartition(exec_instances * cores_per_exec).cache()
-        df = self.spark.read.parquet(self.train_path).repartition(exec_instances * cores_per_exec).cache()
-        df.count()
-        return df
-
-    @property
-    @lru_cache
-    def test_dataset(self) -> DataFrame:
-        exec_instances = int(self.spark.conf.get("spark.executor.instances"))
-        cores_per_exec = int(self.spark.conf.get("spark.executor.cores"))
-        # df = self.spark.read.parquet("file://" + self.test_path).repartition(exec_instances * cores_per_exec).cache()
-        df = self.spark.read.parquet(self.test_path).repartition(exec_instances * cores_per_exec).cache()
-        df.count()
-        return df
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        data = self.spark.read.parquet(self.metadata_path).first().asDict()['data']
-        return pickle.loads(data)
-
-    def train_model(self, fold: int) -> Tuple[int, float]:
-        logger.info(f"Starting to train the model for fold #{fold}")
-
-        # train_df = self.train_dataset
-        test_df = self.test_dataset
-        md = self.metadata
-        task_type = md["task_type"]
-
-        test_df.sql_ctx.sparkSession.sparkContext.setLocalProperty("spark.scheduler.mode", "FAIR")
-        # train_df.sql_ctx.sparkSession.sparkContext.setLocalProperty("spark.task.cpus", "6")
+        task_type = dataset.task.name
+        roles = dataset.roles
+        target = dataset.target_column
 
         prediction_col = 'LightGBM_prediction_0'
         params = deepcopy(base_params)
@@ -414,7 +317,7 @@ class ParallelExperiment:
                 del params["lambdaL2"]
 
         assembler = VectorAssembler(
-            inputCols=list(md['roles'].keys()),
+            inputCols=list(roles.keys()),
             outputCol=f"LightGBM_vassembler_features",
             handleInvalid="keep"
         )
@@ -422,7 +325,7 @@ class ParallelExperiment:
         with self._use_train() as slot:
             train_df, test_df, num_tasks, num_threads, use_single_dataset \
                 = slot.train_df, slot.test_df, slot.num_tasks, slot.num_threads, slot.use_single_dataset_mode
-            full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == fold)
+            full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == 0)
 
             lgbm_booster = LightGBMRegressor if task_type == "reg" else LightGBMClassifier
 
@@ -434,7 +337,7 @@ class ParallelExperiment:
             lgbm = lgbm_booster(
                 **params,
                 featuresCol=assembler.getOutputCol(),
-                labelCol=md['target'],
+                labelCol=target,
                 # validationIndicatorCol='is_val',
                 verbosity=1,
                 useSingleDatasetMode=use_single_dataset,
@@ -455,30 +358,26 @@ class ParallelExperiment:
             metric_value = score(
                 preds_df.select(
                     SparkDataset.ID_COLUMN,
-                    sf.col(md['target']).alias('target'),
+                    sf.col(target).alias('target'),
                     sf.col(prediction_col).alias('prediction')
                 )
             )
 
-            logger.info(f"Finished training the model for fold #{fold}")
+            logger.info(f"Finished training the model for run #{run_num}")
 
-        return fold, metric_value
+        return run_num, metric_value
 
-    def run(self, max_job_parallelism: int = 3) -> List[Tuple[int, float]]:
+    def run(self, dataset: SparkDataset, max_job_parallelism: int = 3, repeatitions: int = 10) \
+            -> List[Tuple[int, float]]:
         with log_exec_timer("Parallel experiment runtime"):
             logger.info("Starting to run the experiment")
 
-            tasks = [
-                functools.partial(
-                    self.train_model,
-                    fold
-                )
-                # TODO: by max_parallelism
-                # TODO: get slots + streaming
-                for fold in range(self.use_fold_num)
-            ]
+            self.prepare_trains(dataset, max_job_parallelism)
 
-            self.prepare_trains(max_job_parallelism)
+            tasks = [
+                functools.partial(self.train_model, dataset.task.name, i)
+                for i in range(repeatitions)
+            ]
 
             processes_num = 1 if self.parallelism_mode == ParallelismMode.no_parallelism else max_job_parallelism
             pool = ThreadPool(processes=processes_num)
@@ -491,21 +390,27 @@ class ParallelExperiment:
 
 
 def main():
-    partitions_num = 6
-    spark = get_spark_session(partitions_num=partitions_num)
+    spark = get_spark_session()
+    feat_pipe = "lgb_adv"
+    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
+    dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
+
+    # load and prepare data
+    ds = SparkDataset.load(
+        path=dataset_path,
+        persistence_manager=PlainCachePersistenceManager()
+    )
 
     exp = ParallelExperiment(
         spark,
         dataset_name=os.environ.get("DATASET", "used_cars_dataset"),
-        prepare_fold_num=int(os.environ.get("PREPARE_FOLD_NUM", "5")),
-        use_fold_num=int(os.environ.get("USE_FOLD_NUM", "5")),
         parallelism_mode=ParallelismMode[os.environ.get("PARALLELISM_MODE", "pref_locs")]
     )
-    exp.prepare_dataset()
-    results = exp.run(max_job_parallelism=int(os.environ.get("MAX_JOB_PARALLELISM", "3")))
 
-    for fold, metric_value in results:
-        print(f"Metric value (fold = {fold}): {metric_value}")
+    results = exp.run(ds, max_job_parallelism=int(os.environ.get("EXP_JOB_PARALLELISM", "3")))
+
+    for run_num, metric_value in results:
+        logger.info(f"Metric value (run_num = {run_num}: {metric_value}")
 
     spark.stop()
 
