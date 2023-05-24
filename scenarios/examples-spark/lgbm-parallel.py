@@ -23,7 +23,7 @@ from sparklightautoml.computations.manager import get_executors, get_executors_c
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 from sparklightautoml.tasks.base import SparkTask
-from sparklightautoml.utils import log_exec_timer
+from sparklightautoml.utils import log_exec_timer, JobGroup
 from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
 
 from examples_utils import get_spark_session
@@ -153,6 +153,7 @@ class DatasetSlot:
     num_threads: int
     use_single_dataset_mode: bool
     free: bool
+    id: int
 
 
 class ParallelismMode(Enum):
@@ -220,7 +221,8 @@ class ParallelExperiment:
                     num_tasks=len(pref_locs) * self._cores_per_exec,
                     num_threads=-1,
                     use_single_dataset_mode=True,
-                    free=True
+                    free=True,
+                    id=i
                 ))
 
                 logger.info(f"Pref lcos for slot #{i}: {pref_locs}")
@@ -233,7 +235,8 @@ class ParallelExperiment:
                 num_tasks=num_tasks_per_job,
                 num_threads=-1,
                 use_single_dataset_mode=False,
-                free=False
+                free=False,
+                id=0
             )
         elif self.parallelism_mode == ParallelismMode.single_dataset_mode:
             num_tasks_per_job = max(1, math.floor(len(self._executors) * self._cores_per_exec / max_job_parallelism))
@@ -251,7 +254,8 @@ class ParallelExperiment:
                 num_tasks=num_tasks_per_job,
                 num_threads=num_threads_per_exec,
                 use_single_dataset_mode=True,
-                free=False
+                free=False,
+                id=-1
             )
 
         else:
@@ -262,11 +266,12 @@ class ParallelExperiment:
                 num_tasks=train_df.rdd.getNumPartitions(),
                 num_threads=-1,
                 use_single_dataset_mode=True,
-                free=False
+                free=False,
+                id=-1
             )
 
     @contextmanager
-    def _use_train(self) -> Iterator[DatasetSlot]:
+    def _use_train(self) -> DatasetSlot:
         if self.parallelism_mode == ParallelismMode.pref_locs:
             with self._train_slots_lock:
                 free_slot = next((slot for slot in self._train_slots if slot.free))
@@ -285,6 +290,7 @@ class ParallelExperiment:
         task_type = dataset.task.name
         roles = dataset.roles
         target = dataset.target_column
+        spark = dataset.data.sql_ctx.sparkSession
 
         prediction_col = 'LightGBM_prediction_0'
         params = deepcopy(base_params)
@@ -323,6 +329,7 @@ class ParallelExperiment:
         )
 
         with self._use_train() as slot:
+            slot: DatasetSlot = slot
             train_df, test_df, num_tasks, num_threads, use_single_dataset \
                 = slot.train_df, slot.test_df, slot.num_tasks, slot.num_threads, slot.use_single_dataset_mode
             full_data = train_df.withColumn('is_val', sf.col('reader_fold_num') == 0)
@@ -350,7 +357,8 @@ class ParallelExperiment:
             if task_type == "reg":
                 lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
 
-            transformer = lgbm.fit(assembler.transform(full_data))
+            with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Should be executed on {slot.pref_locs}", spark):
+                transformer = lgbm.fit(assembler.transform(full_data))
             # metric_value = -1.0
             preds_df = transformer.transform(assembler.transform(test_df))
 
@@ -375,7 +383,7 @@ class ParallelExperiment:
             self.prepare_trains(dataset, max_job_parallelism)
 
             tasks = [
-                functools.partial(self.train_model, dataset.task.name, i)
+                functools.partial(self.train_model, dataset, i)
                 for i in range(repeatitions)
             ]
 
