@@ -7,7 +7,7 @@ from pyspark.resource import ResourceProfileBuilder, ExecutorResourceRequests, T
 from pyspark.sql import SparkSession
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
-from sparklightautoml.utils import JobGroup
+from sparklightautoml.utils import JobGroup, SparkDataFrame
 
 
 def map_partitions(x):
@@ -15,7 +15,7 @@ def map_partitions(x):
     return [sum(1 for _ in x)]
 
 
-def build_task(spark: SparkSession, i: int, ds: SparkDataset):
+def build_task(spark: SparkSession, i: int, df: SparkDataFrame):
     def func():
         rpb = ResourceProfileBuilder()
         ereq = ExecutorResourceRequests().cores(4).memory("6g").memoryOverhead("2g")
@@ -23,12 +23,13 @@ def build_task(spark: SparkSession, i: int, ds: SparkDataset):
         rpb.require(ereq)
         rpb.require(treq)
         rp = rpb.build
-        # Alternative 1
-        with JobGroup(f"Run #{i}", f"Calculating with Resource Profile #{rp.id}", spark):
-            # barrier mode is not supported with dynamic allocation
-            mapped_data_rdd = ds.data.rdd.withResources(profile=rp).mapPartitions(map_partitions)
-            result = mapped_data_rdd.collect()
-            print(f"Result: {result}")
+        for j in range(2):
+            # Alternative 1
+            with JobGroup(f"Run #{i}.{j}", f"Calculating with Resource Profile #{rp.id}", spark):
+                # barrier mode is not supported with dynamic allocation
+                mapped_data_rdd = df.rdd.withResources(profile=rp).mapPartitions(map_partitions)
+                result = mapped_data_rdd.collect()
+                print(f"Result: {result}")
         return f"Ready #{i}"
     return func
 
@@ -41,7 +42,7 @@ def main():
         .config("spark.dynamicAllocation.enabled", "true")
         .config("spark.dynamicAllocation.executorIdleTimeout", "30s")
         .config("spark.dynamicAllocation.minExecutors", "1")
-        .config("spark.dynamicAllocation.maxExecutors", "5")
+        .config("spark.dynamicAllocation.maxExecutors", "12")
         .getOrCreate()
     )
 
@@ -52,12 +53,16 @@ def main():
     # load and prepare data
     ds = SparkDataset.load(
         path=dataset_path,
-        persistence_manager=PlainCachePersistenceManager()
+        persistence_manager=PlainCachePersistenceManager(),
+        partitions_num=2
     )
 
-    tasks = [build_task(spark, i, ds) for i in range(2)]
+    df = ds.data.cache()
+    df.write.mode('overwrite').format('noop').save()
 
-    pool = ThreadPool(processes=2)
+    tasks = [build_task(spark, i, df) for i in range(3)]
+
+    pool = ThreadPool(processes=3)
     tasks = map(inheritable_thread_target, tasks)
     results = [result for result in pool.imap_unordered(lambda f: f(), tasks)]
 
