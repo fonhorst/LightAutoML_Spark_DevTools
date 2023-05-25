@@ -63,6 +63,10 @@ RUN mkdir /opt/hadoop-$HADOOP_VERSION/logs
 
 RUN mkdir /hadoop-data
 
+RUN curl -fSL https://archive.apache.org/dist/spark/spark-3.2.0/spark-3.2.0-bin-hadoop3.2.tgz -o /tmp/spark-3.2.0-bin-hadoop3.2.tgz
+RUN mkdir /opt/spark && tar zxvf /tmp/spark-3.2.0-bin-hadoop3.2.tgz -C /opt/
+RUN cp /opt/spark-3.2.0-bin-hadoop3.2/yarn/spark-3.2.0-yarn-shuffle.jar /opt/hadoop-$HADOOP_VERSION/share/hadoop/yarn/lib
+
 ENV HADOOP_HOME=/opt/hadoop-$HADOOP_VERSION
 ENV HADOOP_CONF_DIR=/etc/hadoop
 ENV MULTIHOMED_NETWORK=1

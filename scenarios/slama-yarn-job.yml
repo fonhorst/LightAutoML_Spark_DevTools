@@ -24,13 +24,14 @@ spec:
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop
+        args: ["/src/examples-spark/stage-level-scheduling.py"]
 #        args: ["/src/examples-spark/coalescing-map-reduce.py"]
 #        args: ["/src/examples-spark/feature-processing-parallel.py"]
 #        args: ["/src/examples-spark/mlalgo-folds-parallel.py"]
 #        args: ["/src/examples-spark/env-run.py"]
 #        args: ["/src/examples-spark/lgbm-folds-parallel.py"]
 #        args: ["/src/examples-spark/feature-processing-only.py"]
-        args: ["/src/examples-spark/lgbm-parallel.py"]
+#        args: ["/src/examples-spark/lgbm-parallel.py"]
 #        args: ["/src/examples-spark/reader-only.py"]
 #        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
 #        envFrom:
@@ -47,13 +48,13 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "8"
+            value: "1"
           - name: EXECUTOR_CORES
             value: "6"
           - name: DATASET
-            value: "used_cars_dataset_1x"
+#            value: "used_cars_dataset_1x"
 #            value: "used_cars_dataset_4x"
-#            value: "lama_test_dataset"
+            value: "lama_test_dataset"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM

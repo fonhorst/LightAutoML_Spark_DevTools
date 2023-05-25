@@ -14,7 +14,7 @@ fi
 
 if [[ -z "${BASE_IMAGE_TAG}" ]]
 then
-  BASE_IMAGE_TAG="10"
+  BASE_IMAGE_TAG="bookworm-20230227"
 fi
 
 

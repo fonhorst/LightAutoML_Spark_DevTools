@@ -37,6 +37,8 @@ data:
   YARN_CONF_yarn_nodemanager_resource_cpu___vcores: "20"
   YARN_CONF_yarn_nodemanager_disk___health___checker_max___disk___utilization___per___disk___percentage: "98.5"
   YARN_CONF_yarn_nodemanager_remote___app___log___dir: "/hadoop/yarn/timeline/hs-app-logs"
+  YARN_CONF_yarn_nodemanager_aux___services: "mapreduce_shuffle,spark_shuffle"
+  YARN_CONF_yarn_nodemanager_aux___services_spark__shuffle_class: "org.apache.spark.network.yarn.YarnShuffleService"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -172,8 +174,14 @@ kind: StatefulSet
 metadata:
   name: yarn-nodemanager
 spec:
+  # doesn't work for v1.22
+#  updateStrategy:
+#    rollingUpdate:
+#      maxUnavailable: "100.0%" # this is the new alpha field, whose default value is 1
+#      partition: 0
+#    type: RollingUpdate
   serviceName: yarn-nms
-  replicas: 6
+  replicas: 10
   selector:
     matchLabels:
       app: yarn-nodemanager
@@ -348,4 +356,6 @@ data:
         <property><name>yarn.nodemanager.resource.cpu-vcores</name><value>8</value></property>
         <property><name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name><value>98.5</value></property>
         <property><name>yarn.nodemanager.remote-app-log-dir</name><value>/app-logs</value></property>
+        <property><name>yarn.nodemanager.aux-services</name><value>mapreduce_shuffle,spark_shuffle</value></property>
+        <property><name>yarn.nodemanager.aux-services.spark_shuffle.class</name><value>org.apache.spark.network.yarn.YarnShuffleService</value></property>
     </configuration>

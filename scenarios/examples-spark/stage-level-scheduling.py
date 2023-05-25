@@ -10,6 +10,7 @@ def main():
     spark = (
         SparkSession
         .builder
+        .config("spark.shuffle.service.enabled", "true")
         .config("spark.dynamicAllocation.enabled", "true")
         .config("spark.dynamicAllocation.executorIdleTimeout", "30s")
         .config("spark.dynamicAllocation.minExecutors", "1")
