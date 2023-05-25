@@ -5,10 +5,11 @@ from pyspark.resource import ResourceProfileBuilder, ExecutorResourceRequests, T
 from pyspark.sql import SparkSession
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
+from sparklightautoml.utils import JobGroup
 
 
 def map_partitions(x):
-    time.sleep(300)
+    time.sleep(60)
     return [sum(1 for _ in x)]
 
 
@@ -26,7 +27,7 @@ def main():
 
     rpb = ResourceProfileBuilder()
     ereq = ExecutorResourceRequests().cores(4).memory("6g").memoryOverhead("2g")
-    treq = TaskResourceRequests().cpus(1)
+    treq = TaskResourceRequests().cpus(4)
     rpb.require(ereq)
     rpb.require(treq)
     rp = rpb.build
@@ -41,12 +42,13 @@ def main():
         persistence_manager=PlainCachePersistenceManager()
     )
 
-    # barrier mode is not supported with dynamic allocation
-    mapped_data_rdd = ds.data.rdd.withResources(profile=rp).mapPartitions(map_partitions)
-
-    # Alternative 1
-    result = mapped_data_rdd.collect()
-    print(f"Result: {result}")
+    for i in range(2):
+        # Alternative 1
+        with JobGroup(f"Run #{i}", f"Calculating with Resource Profile #{rp.id}", spark):
+            # barrier mode is not supported with dynamic allocation
+            mapped_data_rdd = ds.data.rdd.withResources(profile=rp).mapPartitions(map_partitions)
+            result = mapped_data_rdd.collect()
+            print(f"Result: {result}")
 
     # Alternative 2
     # result = spark.createDataFrame(mapped_data_rdd.map(lambda x: (x,)))
