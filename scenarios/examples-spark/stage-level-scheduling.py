@@ -1,9 +1,15 @@
 import os
+import time
 
 from pyspark.resource import ResourceProfileBuilder, ExecutorResourceRequests, TaskResourceRequests
 from pyspark.sql import SparkSession
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
+
+
+def map_partitions(x):
+    time.sleep(300)
+    return [sum(1 for _ in x)]
 
 
 def main():
@@ -35,7 +41,8 @@ def main():
         persistence_manager=PlainCachePersistenceManager()
     )
 
-    mapped_data_rdd = ds.data.rdd.withResources(profile=rp).barrier().mapPartitions(lambda x: [sum(1 for _ in x)])
+    # barrier mode is not supported with dynamic allocation
+    mapped_data_rdd = ds.data.rdd.withResources(profile=rp).mapPartitions(map_partitions)
 
     # Alternative 1
     result = mapped_data_rdd.collect()
