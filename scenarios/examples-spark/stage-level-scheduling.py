@@ -25,13 +25,6 @@ def main():
         .getOrCreate()
     )
 
-    rpb = ResourceProfileBuilder()
-    ereq = ExecutorResourceRequests().cores(4).memory("6g").memoryOverhead("2g")
-    treq = TaskResourceRequests().cpus(4)
-    rpb.require(ereq)
-    rpb.require(treq)
-    rp = rpb.build
-
     feat_pipe, ml_algo_name = "lgb_adv", "lgb"
     job_parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
@@ -43,6 +36,12 @@ def main():
     )
 
     for i in range(2):
+        rpb = ResourceProfileBuilder()
+        ereq = ExecutorResourceRequests().cores(4).memory("6g").memoryOverhead("2g")
+        treq = TaskResourceRequests().cpus(4)
+        rpb.require(ereq)
+        rpb.require(treq)
+        rp = rpb.build
         # Alternative 1
         with JobGroup(f"Run #{i}", f"Calculating with Resource Profile #{rp.id}", spark):
             # barrier mode is not supported with dynamic allocation
