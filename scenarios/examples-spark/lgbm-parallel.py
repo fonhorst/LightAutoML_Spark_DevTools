@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from enum import Enum
 from multiprocessing.pool import ThreadPool
-from typing import Tuple, List, Optional, Iterator
+from typing import Tuple, List, Optional
 
 # noinspection PyUnresolvedReferences
 from attr import dataclass
@@ -22,7 +22,6 @@ from pyspark.sql import functions as sf
 from sparklightautoml.computations.manager import get_executors, get_executors_cores
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
-from sparklightautoml.tasks.base import SparkTask
 from sparklightautoml.utils import log_exec_timer, JobGroup
 from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
 
@@ -197,35 +196,47 @@ class ParallelExperiment:
 
             slots_num = int(len(self._executors) / execs_per_job)
 
-            self._train_slots = []
-
             def _coalesce_df_to_locs(df: DataFrame, pref_locations: List[str]):
                 df = PrefferedLocsPartitionCoalescerTransformer(pref_locs=pref_locations).transform(df)
                 df = df.cache()
                 df.write.mode('overwrite').format('noop').save()
                 return df
 
-            for i in range(slots_num):
-                pref_locs = self._executors[i * execs_per_job: (i + 1) * execs_per_job]
+            path = "/tmp/train_df_for_coalescing.parquet"
+            train_df.write.parquet(path)
+            spark = SparkSession.getActiveSession()
 
-                # prepare train
-                train_df = _coalesce_df_to_locs(train_df, pref_locs)
+            def build_task(slot_num: int):
+                def func():
+                    pref_locs = self._executors[slot_num * execs_per_job: (slot_num + 1) * execs_per_job]
 
-                # prepare test
-                test_df = _coalesce_df_to_locs(test_df, pref_locs)
+                    df = spark.read.parquet(path)
 
-                self._train_slots.append(DatasetSlot(
-                    train_df=train_df,
-                    test_df=test_df,
-                    pref_locs=pref_locs,
-                    num_tasks=len(pref_locs) * self._cores_per_exec,
-                    num_threads=-1,
-                    use_single_dataset_mode=True,
-                    free=True,
-                    id=i
-                ))
+                    # prepare train
+                    train_df = _coalesce_df_to_locs(df, pref_locs)
 
-                logger.info(f"Pref lcos for slot #{i}: {pref_locs}")
+                    # # prepare test
+                    # test_df = _coalesce_df_to_locs(test_df, pref_locs)
+                    test_df = train_df
+
+                    slot = DatasetSlot(
+                        train_df=train_df,
+                        test_df=test_df,
+                        pref_locs=pref_locs,
+                        num_tasks=len(pref_locs) * self._cores_per_exec,
+                        num_threads=-1,
+                        use_single_dataset_mode=True,
+                        free=True,
+                        id=slot_num
+                    )
+
+                    logger.info(f"Pref lcos for slot #{slot_num}: {pref_locs}")
+                    return slot
+                return func
+
+            pool = ThreadPool(processes=slots_num)
+            tasks = map(inheritable_thread_target, [build_task(i) for i in range(slots_num)])
+            self._train_slots = list(pool.imap_unordered(lambda f: f(), tasks))
         elif self.parallelism_mode == ParallelismMode.no_single_dataset_mode:
             num_tasks_per_job = max(1, math.floor(len(self._executors) * self._cores_per_exec / max_job_parallelism))
             self._slot = DatasetSlot(
@@ -360,18 +371,19 @@ class ParallelExperiment:
             with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Should be executed on {slot.pref_locs}", spark):
                 transformer = lgbm.fit(assembler.transform(full_data))
 
-            with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Scoring. "
-                                                               f"Should be executed on {slot.pref_locs}", spark):
-                # metric_value = -1.0
-                preds_df = transformer.transform(assembler.transform(test_df))
-                score = SparkTask(task_type).get_dataset_metric()
-                metric_value = score(
-                    preds_df.select(
-                        SparkDataset.ID_COLUMN,
-                        sf.col(target).alias('target'),
-                        sf.col(prediction_col).alias('prediction')
-                    )
-                )
+            # with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Scoring. "
+            #                                                    f"Should be executed on {slot.pref_locs}", spark):
+            #     # metric_value = -1.0
+            #     preds_df = transformer.transform(assembler.transform(test_df))
+            #     score = SparkTask(task_type).get_dataset_metric()
+            #     metric_value = score(
+            #         preds_df.select(
+            #             SparkDataset.ID_COLUMN,
+            #             sf.col(target).alias('target'),
+            #             sf.col(prediction_col).alias('prediction')
+            #         )
+            #     )
+            metric_value = 0.0
 
             logger.info(f"Finished training the model for run #{run_num}")
 
