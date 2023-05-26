@@ -203,17 +203,21 @@ class ParallelExperiment:
                 return df
 
             # path = "/tmp/train_df_for_coalescing.parquet"
-            # train_df.write.parquet(path)
+            # train_df.repartition(execs_per_job * self._cores_per_exec).write.parquet(path)
             # spark = SparkSession.getActiveSession()
+
+            train_df = train_df.cache()
+            train_df.write.mode("overwrite").format("noop").save()
 
             def build_task(slot_num: int):
                 def func():
                     pref_locs = self._executors[slot_num * execs_per_job: (slot_num + 1) * execs_per_job]
 
                     # df = spark.read.parquet(path)
+                    df = train_df
 
                     # prepare train
-                    tr_df = _coalesce_df_to_locs(train_df, pref_locs)
+                    tr_df = _coalesce_df_to_locs(df, pref_locs)
 
                     # # prepare test
                     # test_df = _coalesce_df_to_locs(test_df, pref_locs)
@@ -235,6 +239,7 @@ class ParallelExperiment:
                 return func
 
             pool = ThreadPool(processes=slots_num)
+            # pool = ThreadPool(processes=1)
             tasks = map(inheritable_thread_target, [build_task(i) for i in range(slots_num)])
             self._train_slots = list(pool.imap_unordered(lambda f: f(), tasks))
         elif self.parallelism_mode == ParallelismMode.no_single_dataset_mode:
@@ -351,11 +356,13 @@ class ParallelExperiment:
                 params['numThreads'] = num_threads
 
             params["numIterations"] = 500
+            params["earlyStoppingRound"] = 5000
 
             lgbm = lgbm_booster(
                 **params,
                 featuresCol=assembler.getOutputCol(),
                 labelCol=target,
+                # defaultListenPort=12700 + run_num,
                 # validationIndicatorCol='is_val',
                 verbosity=1,
                 useSingleDatasetMode=use_single_dataset,
@@ -368,8 +375,8 @@ class ParallelExperiment:
             if task_type == "reg":
                 lgbm.setAlpha(0.5).setLambdaL1(0.0).setLambdaL2(0.0)
 
-            with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Should be executed on {slot.pref_locs}", spark):
-                transformer = lgbm.fit(assembler.transform(full_data))
+            # with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Should be executed on {slot.pref_locs}", spark):
+            #     transformer = lgbm.fit(assembler.transform(full_data))
 
             # with JobGroup(f"Run {run_num} in slot #{slot.id}", f"Scoring. "
             #                                                    f"Should be executed on {slot.pref_locs}", spark):
@@ -430,7 +437,7 @@ def main():
         parallelism_mode=ParallelismMode[os.environ.get("PARALLELISM_MODE", "pref_locs")]
     )
 
-    results = exp.run(ds, max_job_parallelism=int(os.environ.get("EXP_JOB_PARALLELISM", "3")), repeatitions=8)
+    results = exp.run(ds, max_job_parallelism=int(os.environ.get("EXP_JOB_PARALLELISM", "3")), repeatitions=16)
 
     for run_num, metric_value in results:
         logger.info(f"Metric value (run_num = {run_num}: {metric_value}")

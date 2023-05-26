@@ -64,6 +64,10 @@ DATASETS = {
         path=ds_path("derivative_datasets/4x_dataset.csv"),
         **used_cars_params
     ),
+    "used_cars_dataset_10x": Dataset(
+        path=ds_path("derivative_datasets/10x_dataset.csv"),
+        **used_cars_params
+    ),
     "lama_test_dataset": Dataset(
         path=ds_path("sampled_app_train.csv"),
         task_type="binary",
