@@ -202,26 +202,26 @@ class ParallelExperiment:
                 df.write.mode('overwrite').format('noop').save()
                 return df
 
-            path = "/tmp/train_df_for_coalescing.parquet"
-            train_df.write.parquet(path)
-            spark = SparkSession.getActiveSession()
+            # path = "/tmp/train_df_for_coalescing.parquet"
+            # train_df.write.parquet(path)
+            # spark = SparkSession.getActiveSession()
 
             def build_task(slot_num: int):
                 def func():
                     pref_locs = self._executors[slot_num * execs_per_job: (slot_num + 1) * execs_per_job]
 
-                    df = spark.read.parquet(path)
+                    # df = spark.read.parquet(path)
 
                     # prepare train
-                    train_df = _coalesce_df_to_locs(df, pref_locs)
+                    tr_df = _coalesce_df_to_locs(train_df, pref_locs)
 
                     # # prepare test
                     # test_df = _coalesce_df_to_locs(test_df, pref_locs)
-                    test_df = train_df
+                    tst_df = tr_df
 
                     slot = DatasetSlot(
-                        train_df=train_df,
-                        test_df=test_df,
+                        train_df=tr_df,
+                        test_df=tst_df,
                         pref_locs=pref_locs,
                         num_tasks=len(pref_locs) * self._cores_per_exec,
                         num_threads=-1,
@@ -421,7 +421,7 @@ def main():
     ds = SparkDataset.load(
         path=dataset_path,
         persistence_manager=PlainCachePersistenceManager(),
-        partitions_num=len(get_executors()) * get_executors_cores()
+        # partitions_num=len(get_executors()) * get_executors_cores()
     )
 
     exp = ParallelExperiment(
@@ -430,7 +430,7 @@ def main():
         parallelism_mode=ParallelismMode[os.environ.get("PARALLELISM_MODE", "pref_locs")]
     )
 
-    results = exp.run(ds, max_job_parallelism=int(os.environ.get("EXP_JOB_PARALLELISM", "3")))
+    results = exp.run(ds, max_job_parallelism=int(os.environ.get("EXP_JOB_PARALLELISM", "3")), repeatitions=8)
 
     for run_num, metric_value in results:
         logger.info(f"Metric value (run_num = {run_num}: {metric_value}")
