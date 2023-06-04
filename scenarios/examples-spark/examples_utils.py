@@ -193,6 +193,7 @@ def get_spark_session(partitions_num: Optional[int] = None):
     partitions_num = partitions_num if partitions_num else BUCKET_NUMS
 
     if os.environ.get("SCRIPT_ENV", None) == "cluster":
+        # spark_sess = SparkSession.builder.config("spark.locality.wait", "30s").getOrCreate()
         spark_sess = SparkSession.builder.getOrCreate()
     else:
         # TODO: SLAMA - fix .config("spark.jars", "../../LightAutoML/jars/spark-lightautoml_2.12-0.1.jar") with correct path

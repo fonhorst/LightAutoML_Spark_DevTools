@@ -48,19 +48,20 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "16"
+            value: "4"
           - name: EXECUTOR_CORES
-            value: "6"
+            value: "8"
           - name: DATASET
-#            value: "used_cars_dataset_1x"
-            value: "used_cars_dataset_4x"
+            value: "used_cars_dataset_1x"
+#            value: "used_cars_dataset_4x"
 #            value: "used_cars_dataset_10x"
 #            value: "lama_test_dataset"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
-            value: "2"
+            value: "16"
           - name: PARALLELISM_MODE
-            value: "pref_locs"
+#            value: "pref_locs"
+            value: "no_parallelism"
       restartPolicy: Never
   backoffLimit: 0
