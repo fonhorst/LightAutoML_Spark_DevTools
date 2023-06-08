@@ -95,8 +95,8 @@ ${exp_vars} \
 --conf "spark.yarn.historyServer.allowTracking=true" \
 --conf "spark.driver.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
 --conf "spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
---conf "spark.executor.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
---conf "spark.driver.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
+--conf "spark.executor.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
+--conf "spark.driver.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
 --conf "spark.sql.warehouse.dir=${WAREHOUSE_DIR}" \
 --conf "spark.task.maxFailures=1" \
 --conf "spark.excludeOnFailure.task.maxTaskAttemptsPerNode=1" \
