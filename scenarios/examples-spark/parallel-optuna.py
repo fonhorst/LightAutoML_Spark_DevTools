@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # create main entities
     computations_manager = ParallelComputationsManager(parallelism=parallelism, use_location_prefs_mode=True)
-    iterator = SparkFoldsIterator(train_ds)#.convert_to_holdout_iterator()
+    iterator = SparkFoldsIterator(train_ds).convert_to_holdout_iterator()
     tuner = ProgressReportingOptunaTuner(
         n_trials=8,
         timeout=600,
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # tuner = DefaultTuner()
 
     ml_algo = SparkBoostLGBM(
-        default_params={"numIterations": 500},
+        default_params={"numIterations": 500, "earlyStoppingRound": 50_000},
         use_barrier_execution_mode=True,
         computations_settings=computations_manager
     )
