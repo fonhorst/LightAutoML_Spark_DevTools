@@ -52,6 +52,8 @@ spec:
             value: "8"
           - name: EXECUTOR_CORES
             value: "4"
+          - name: PYSPARK_PYTHON_PATH
+            value: "/python_envs/.slama_venv3.9/bin/python3"
           - name: DATASET
             value: "used_cars_dataset_1x"
 #            value: "used_cars_dataset_4x"
@@ -60,7 +62,7 @@ spec:
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
-            value: "4"
+            value: "2"
           - name: PARALLELISM_MODE
 #            value: "pref_locs"
             value: "no_parallelism"
