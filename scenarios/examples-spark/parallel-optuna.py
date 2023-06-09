@@ -4,15 +4,15 @@ import os
 import uuid
 from copy import deepcopy
 from logging import config
-from typing import Tuple, Union, Callable, Optional, Dict
+from typing import Tuple, Union, Callable, Optional, Dict, List
 
 import mlflow
 import optuna
 from lightautoml.ml_algo.tuning.optuna import TunableAlgo
 from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
-from sparklightautoml.computations.base import ComputationsSettings
-from sparklightautoml.computations.parallel import ParallelComputationsManager
+from sparklightautoml.computations.base import ComputationsSettings, ComputationSlot
+from sparklightautoml.computations.parallel import ParallelComputationsManager, ParallelComputationsSession
 from sparklightautoml.computations.utils import deecopy_tviter_without_dataset
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
@@ -120,6 +120,29 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
         return objective
 
 
+class ReportingParallelComputeSession(ParallelComputationsSession):
+    def __init__(self, dataset: SparkDataset, parallelism: int, use_location_prefs_mode: int):
+        super().__init__(dataset, parallelism, use_location_prefs_mode)
+        self.prepare_dataset_time: Optional[float] = None
+
+    def _make_slots_on_dataset_copies_coalesced_into_preffered_locations(self, dataset: SparkDataset) \
+            -> List[ComputationSlot]:
+        with log_exec_timer("prepare_dataset_with_locations_prefferences") as timer:
+            result = super()._make_slots_on_dataset_copies_coalesced_into_preffered_locations(dataset)
+        self.prepare_dataset_time = timer.duration
+        return result
+
+
+class ReportingParallelComputionsManager(ParallelComputationsManager):
+    def __init__(self, parallelism: int = 1, use_location_prefs_mode: bool = False):
+        super().__init__(parallelism, use_location_prefs_mode)
+        self.last_session: Optional[ReportingParallelComputeSession] = None
+
+    def session(self, dataset: Optional[SparkDataset] = None) -> ParallelComputationsSession:
+        self.last_session = ReportingParallelComputeSession(dataset, self._parallelism, self._use_location_prefs_mode)
+        return self.last_session
+
+
 def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float, int] = 0.2) \
         -> Tuple[SparkDataset, SparkDataset]:
 
@@ -157,14 +180,16 @@ if __name__ == "__main__":
     train_ds, test_ds = train_test_split(ds, test_slice_or_fold_num=4)
 
     # create main entities
-    computations_manager = ParallelComputationsManager(parallelism=parallelism, use_location_prefs_mode=True)
+    computations_manager_optuna = \
+        ReportingParallelComputionsManager(parallelism=parallelism, use_location_prefs_mode=True)
+    computations_manager_boosting = ReportingParallelComputionsManager(parallelism=parallelism, use_location_prefs_mode=True)
     iterator = SparkFoldsIterator(train_ds).convert_to_holdout_iterator()
     with mlflow.start_run(experiment_id=os.environ["EXPERIMENT"]):
         tuner = ProgressReportingOptunaTuner(
             n_trials=n_trials,
             timeout=timeout,
             parallelism=parallelism,
-            computations_manager=computations_manager,
+            computations_manager=computations_manager_optuna,
             stabilize=stabilize
         )
         # tuner = DefaultTuner()
@@ -172,7 +197,7 @@ if __name__ == "__main__":
         ml_algo = SparkBoostLGBM(
             default_params={"numIterations": 500, "earlyStoppingRound": 50_000},
             use_barrier_execution_mode=True,
-            computations_settings=computations_manager
+            computations_settings=computations_manager_boosting
         )
         score = ds.task.get_dataset_metric()
 
@@ -197,6 +222,10 @@ if __name__ == "__main__":
 
         mlflow.log_metric(fit_timer.name, fit_timer.duration)
         mlflow.log_metric("optuna_optimize_time", tuner.optimize_time)
+        mlflow.log_metric(
+            "optuna_prepare_dataset_pref_locs_time",
+            computations_manager_optuna.last_session.prepare_dataset_time
+        )
         mlflow.log_dict(tuner.run_reports, "run_reports.json")
 
         test_preds = ml_algo.predict(test_ds)

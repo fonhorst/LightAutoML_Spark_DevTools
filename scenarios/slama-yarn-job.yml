@@ -63,7 +63,7 @@ spec:
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
-            value: "1"
+            value: "8"
           - name: PARALLELISM_MODE
 #            value: "pref_locs"
             value: "no_parallelism"
