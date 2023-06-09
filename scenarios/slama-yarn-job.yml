@@ -44,7 +44,7 @@ spec:
           - name: MLFLOW_TRACKING_URI
             value: "http://mlflow-exps:5000"
           - name: EXPERIMENT
-            value: "4"
+            value: "39"
 #            value: "37"
           - name: LOG_TO_MLFLOW
             value: "1"
