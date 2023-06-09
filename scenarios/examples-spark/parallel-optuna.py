@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # create main entities
     computations_manager_optuna = \
         ReportingParallelComputionsManager(parallelism=parallelism, use_location_prefs_mode=True)
-    computations_manager_boosting = ReportingParallelComputionsManager(parallelism=parallelism, use_location_prefs_mode=True)
+    computations_manager_boosting = ReportingParallelComputionsManager(parallelism=1, use_location_prefs_mode=True)
     iterator = SparkFoldsIterator(train_ds).convert_to_holdout_iterator()
     with mlflow.start_run(experiment_id=os.environ["EXPERIMENT"]):
         tuner = ProgressReportingOptunaTuner(
