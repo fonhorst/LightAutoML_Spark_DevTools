@@ -42,10 +42,10 @@ spec:
           - name: HADOOP_CONF_DIR
             value: /etc/hadoop
           - name: MLFLOW_TRACKING_URI
-            value: "http://mlflow-exps:5000"
+#            value: "http://mlflow-exps:5000"
+            value: "http://node2.bdcl:8811"
           - name: EXPERIMENT
-            value: "39"
-#            value: "37"
+            value: "167"
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES

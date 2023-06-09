@@ -43,6 +43,13 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
         super().__init__(timeout, n_trials, direction, fit_on_holdout, random_state, parallelism, computations_manager)
         self.run_reports: Dict[str, (float, float, dict)] = dict()
         self._stabilize = stabilize
+        self.optimize_time: Optional[float] = None
+
+    def _optimize(self, ml_algo: SparkTabularMLAlgo, train_valid_iterator: SparkBaseTrainValidIterator,
+                  update_trial_time: Callable[[optuna.study.Study, optuna.trial.FrozenTrial], None]):
+        with log_exec_timer("optimize_timw") as timer:
+            super()._optimize(ml_algo, train_valid_iterator, update_trial_time)
+        self.optimize_time = timer.duration
 
     def _get_objective(self,
                        ml_algo: TunableAlgo,
@@ -182,13 +189,14 @@ if __name__ == "__main__":
             "optuna_stabilize": stabilize,
             "mlalgo_default_params": default_params
         })
-        mlflow.log_dict(dict(spark.conf), "spark_conf.json")
+        mlflow.log_dict(dict(spark.sparkContext.getConf().getAll()), "spark_conf.json")
 
         # fit and predict
         with log_exec_timer("ml_algo_time") as fit_timer:
             model, oof_preds = tune_and_fit_predict(ml_algo, tuner, iterator)
 
         mlflow.log_metric(fit_timer.name, fit_timer.duration)
+        mlflow.log_metric("optuna_optimize_time", tuner.optimize_time)
         mlflow.log_dict(tuner.run_reports, "run_reports.json")
 
         test_preds = ml_algo.predict(test_ds)
