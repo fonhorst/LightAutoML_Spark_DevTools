@@ -74,14 +74,18 @@ if __name__ == "__main__":
     computations_manager = ParallelComputationsManager(parallelism=parallelism, use_location_prefs_mode=True)
     iterator = SparkFoldsIterator(train_ds)#.convert_to_holdout_iterator()
     tuner = ProgressReportingOptunaTuner(
-        n_trials=10,
-        timeout=300,
+        n_trials=8,
+        timeout=600,
         parallelism=parallelism,
         computations_manager=computations_manager
     )
     # tuner = DefaultTuner()
 
-    ml_algo = SparkBoostLGBM(default_params={"numIterations": 500}, computations_settings=computations_manager)
+    ml_algo = SparkBoostLGBM(
+        default_params={"numIterations": 500},
+        use_barrier_execution_mode=True,
+        computations_settings=computations_manager
+    )
     score = ds.task.get_dataset_metric()
 
     # fit and predict

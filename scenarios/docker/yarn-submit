@@ -50,6 +50,8 @@ export SPARK_NO_DAEMONIZE=1
 exp_vars=$(printenv | grep '^EXP_' | awk '{print "--conf spark.yarn.appMasterEnv."$1}' | tr '\n' ' ')
 
 #--conf "spark.executor.memoryOverhead=40800" \
+# we intentionally remove this property
+#--conf "spark.default.parallelism=${PARTITION_NUM}" \
 spark-submit \
 --master yarn \
 --deploy-mode cluster \
@@ -83,7 +85,6 @@ ${exp_vars} \
 --conf "spark.cores.max=${CORES_MAX}" \
 --conf "spark.memory.fraction=0.8" \
 --conf "spark.sql.shuffle.partitions=${PARTITION_NUM}" \
---conf "spark.default.parallelism=${PARTITION_NUM}" \
 --conf "spark.yarn.maxAppAttempts=1" \
 --conf "spark.rpc.message.maxSize=1024" \
 --conf "spark.sql.autoBroadcastJoinThreshold=100MB" \
@@ -95,8 +96,8 @@ ${exp_vars} \
 --conf "spark.yarn.historyServer.allowTracking=true" \
 --conf "spark.driver.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
 --conf "spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
---conf "spark.executor.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
---conf "spark.driver.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
+--conf "spark.executor.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
+--conf "spark.driver.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
 --conf "spark.sql.warehouse.dir=${WAREHOUSE_DIR}" \
 --conf "spark.task.maxFailures=1" \
 --conf "spark.excludeOnFailure.task.maxTaskAttemptsPerNode=1" \
