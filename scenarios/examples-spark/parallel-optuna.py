@@ -13,7 +13,7 @@ from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
 from sparklightautoml.computations.base import ComputationsSettings, ComputationSlot
 from sparklightautoml.computations.parallel import ParallelComputationsManager, ParallelComputationsSession
-from sparklightautoml.computations.utils import deecopy_tviter_without_dataset
+from sparklightautoml.computations.utils import deecopy_tviter_without_dataset, get_executors, get_executors_cores
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 from sparklightautoml.ml_algo.base import SparkTabularMLAlgo
@@ -47,7 +47,7 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
 
     def _optimize(self, ml_algo: SparkTabularMLAlgo, train_valid_iterator: SparkBaseTrainValidIterator,
                   update_trial_time: Callable[[optuna.study.Study, optuna.trial.FrozenTrial], None]):
-        with log_exec_timer("optimize_timw") as timer:
+        with log_exec_timer("optimize_time") as timer:
             super()._optimize(ml_algo, train_valid_iterator, update_trial_time)
         self.optimize_time = timer.duration
 
@@ -91,6 +91,8 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
                 # we may intentionally do not use these params to stabilize execution time
                 if not self._stabilize:
                     _ml_algo.params = params
+
+                logger.warning(f"Optuna Params: {params}")
 
                 with log_exec_timer(f"fit_{trial_id}") as fp_timer:
                     output_dataset = _ml_algo.fit_predict(train_valid_iterator=tv_iter)
@@ -150,8 +152,25 @@ def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float,
         assert 0 <= test_slice_or_fold_num <= 1
         train, test = dataset.data.randomSplit([1 - test_slice_or_fold_num, test_slice_or_fold_num])
     else:
-        train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num)
-        test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num)
+        train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num).repartition(
+            len(get_executors()) * get_executors_cores()
+        )
+        test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num).repartition(
+            len(get_executors()) * get_executors_cores()
+        )
+
+    train, test = train.cache(), test.cache()
+    train.write.mode("overwrite").format("noop").save()
+    test.write.mode("overwrite").format("noop").save()
+
+    rows = (
+        train
+        .withColumn("__partition_id__", sf.spark_partition_id())
+        .groupby("__partition_id__").agg(sf.count("*").alias("all_values"))
+        .collect()
+    )
+    for row in rows:
+        assert row["all_values"] != 0, f"Empty partitions: {row['__partition_id_']}"
 
     train_dataset, test_dataset = dataset.empty(), dataset.empty()
     train_dataset.set_data(train, dataset.features, roles=dataset.roles)
@@ -166,9 +185,9 @@ if __name__ == "__main__":
     feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
-    n_trials = 8
-    timeout = 600
-    stabilize = True
+    n_trials = 64
+    timeout = 60000
+    stabilize = False
     default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
 
@@ -177,6 +196,12 @@ if __name__ == "__main__":
         path=dataset_path,
         persistence_manager=PlainCachePersistenceManager()
     )
+
+    allocated_executos_num = len(get_executors())
+    assert allocated_executos_num == int(spark.conf.get("spark.executor.instances")), \
+        f"Not all desired executors have been allocated: " \
+        f"{allocated_executos_num} != {spark.conf.get('spark.executor.instances')}"
+
     train_ds, test_ds = train_test_split(ds, test_slice_or_fold_num=4)
 
     # create main entities

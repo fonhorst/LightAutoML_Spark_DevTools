@@ -49,7 +49,7 @@ spec:
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
-            value: "8"
+            value: "16"
           - name: EXECUTOR_CORES
             value: "4"
           - name: PYSPARK_PYTHON_PATH
@@ -63,7 +63,7 @@ spec:
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
-            value: "2"
+            value: "8"
           - name: PARALLELISM_MODE
 #            value: "pref_locs"
             value: "no_parallelism"
