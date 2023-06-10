@@ -86,6 +86,7 @@ ${exp_vars} \
 --conf "spark.memory.fraction=0.8" \
 --conf "spark.sql.shuffle.partitions=${PARTITION_NUM}" \
 --conf "spark.yarn.maxAppAttempts=1" \
+--conf "spark.yarn.am.waitTime=200s" \
 --conf "spark.rpc.message.maxSize=1024" \
 --conf "spark.sql.autoBroadcastJoinThreshold=100MB" \
 --conf "spark.sql.execution.arrow.pyspark.enabled=true" \
@@ -94,8 +95,8 @@ ${exp_vars} \
 --conf "spark.eventLog.enabled=true" \
 --conf "spark.eventLog.dir=hdfs://node21.bdcl:9000/shared/spark-logs" \
 --conf "spark.yarn.historyServer.allowTracking=true" \
---conf "spark.driver.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
---conf "spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true" \
+--conf "spark.driver.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true -Dlog4j.configuration=log4j.properties -Dlog4j.debug=true" \
+--conf "spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true -Dlog4j.configuration=log4j.properties -Dlog4j.debug=true" \
 --conf "spark.executor.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
 --conf "spark.driver.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
 --conf "spark.sql.warehouse.dir=${WAREHOUSE_DIR}" \
@@ -105,6 +106,7 @@ ${exp_vars} \
 --conf "spark.excludeOnFailure.stage.maxFailedExecutorsPerNode=1" \
 --conf "spark.excludeOnFailure.application.maxFailedTasksPerExecutor=1" \
 --conf "spark.excludeOnFailure.application.maxFailedExecutorsPerNode=1" \
+--files "/src/log4j.properties" \
 --py-files "/src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl,/src/examples-spark/*,/src/tabular_config.yml" \
 --num-executors "${EXECUTOR_INSTANCES}" \
 --jars "/src/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar" \

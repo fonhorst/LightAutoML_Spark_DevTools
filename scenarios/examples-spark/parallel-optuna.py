@@ -180,6 +180,7 @@ def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float,
 
 
 if __name__ == "__main__":
+    logger.info("In the very beginning of parallel-optuna")
     spark = get_spark_session()
 
     feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
