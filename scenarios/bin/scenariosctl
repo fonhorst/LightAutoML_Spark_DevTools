@@ -51,7 +51,16 @@ function restart_scenario() {
 }
 
 function stop_scenario() {
-    kubectl -n spark-lama-exps delete -f slama-yarn-job.yml --ignore-not-found
+  kubectl -n spark-lama-exps delete -f slama-yarn-job.yml --ignore-not-found
+}
+
+function restart_repeater() {
+  kubectl -n spark-lama-exps delete -f slama-repeater-job.yml --ignore-not-found
+  kubectl -n spark-lama-exps apply -f slama-repeater-job.yml
+}
+
+function stop_repeater() {
+  kubectl -n spark-lama-exps delete -f slama-repeater-job.yml --ignore-not-found
 }
 
 function help() {
