@@ -159,8 +159,8 @@ class Repeater:
         return os.path.join(path_to_save_params, f'run_params_{run_uuid}.json'), run_uuid
 
     @staticmethod
-    def _collect_existing_runs(runs: t.List[mlflow.entities.Run]) -> t.List[Parameters]:
-        existing_runs = []
+    def _collect_existing_runs(runs: t.List[mlflow.entities.Run]) -> t.Set[Parameters]:
+        existing_runs = set()
         for run in runs:
             run_params = run.to_dictionary()['data']['params']
             params_run = {
@@ -173,14 +173,14 @@ class Repeater:
                 k: v for k, v in run_params.items()
                 if not k.startswith('run_parameters.') and not k.startswith('env_parameters.')
             }
-            existing_runs.append(
+            existing_runs.add(
                 Parameters.from_dict({**other_params, 'run_parameters': params_run, 'env_parameters': params_env})
             )
         return existing_runs
 
-    def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.List[Parameters]:
+    def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.Set[Parameters]:
         if self.mlflow_tracking_uri is None or not self.check_existing_experiments:
-            return []
+            return set()
 
         mlflow.set_tracking_uri(self.mlflow_tracking_uri)
 
@@ -299,17 +299,8 @@ class Repeater:
 
 
 class DryRunRepeater(Repeater):
-    # def _save_params(self, path_to_save_params: str, params: Parameters) -> t.Tuple[str, uuid.UUID]:
-    #     if self.mlflow_tracking_uri is None:
-    #         self.mlflow_tracking_uri = "http://some-mlflow-instance:5000"
-    #         result = super()._save_params(path_to_save_params, params)
-    #         self.mlflow_tracking_uri = None
-    #         return result
-    #     else:
-    #         return super()._save_params(path_to_save_params, params)
-
-    def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.List[Parameters]:
-        return []
+    def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.Set[Parameters]:
+        return set()
 
     async def _execute_run(self, rep_run: RepetitionRun) -> None:
         pprint(rep_run)
