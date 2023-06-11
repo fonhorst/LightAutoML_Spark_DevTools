@@ -2,6 +2,12 @@
 
 set -ex
 
+# uncomment to reddefine spark-submit command for debug purposes
+#spark-submit()
+#{
+#    echo "Calling spark-submit"
+#}
+
 if [[ -z "$1" ]]; then
   echo "SCRIPT arg is not defined but required"
   exit 1
