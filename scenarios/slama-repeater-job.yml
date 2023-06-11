@@ -24,6 +24,7 @@ spec:
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop
+        command: ["python3"]
         args:
           - "/src/repeater/repeater.py"
           - "--config=/src/conf/optuna-config.py"

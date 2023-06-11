@@ -7,6 +7,7 @@ import random
 import sys
 import typing as t
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass, fields, field
 from pprint import pprint
 
@@ -196,7 +197,16 @@ class Repeater:
         existing_runs = self._collect_existing_runs(runs)
         return existing_runs
 
+    def _prepare_env_params(self, run_config: dict) -> dict:
+        env_params = deepcopy(run_config['env_parameters'])
+        env_params['EXPERIMENT'] = run_config['mlflow_experiment_id']
+        env_params['LOG_TO_MLFLOW'] = '1'
+        env_params['MLFLOW_TRACKING_URI'] = self.mlflow_tracking_uri
+        return env_params
+
     def _prepare_configurations(self) -> t.Generator[RepetitionRun, None, None]:
+        self._check_for_mlflow()
+
         logger.info("Finding existing runs for an experiment. Preparing the list of configurations for the run")
         path_to_save_params: str = self.configuration['path_to_save_params']
         configurations: t.List[dict] = self.configuration.get('configuration', None)
@@ -209,10 +219,13 @@ class Repeater:
 
         existing_runs = self._get_existing_runs(mlflow_exp_ids)
         for run_config in configurations:
+            env_params = self._prepare_env_params(run_config)
+
+            run_params = run_config.get('run_parameters', dict())
             current_params = Parameters(
-                dataset_path=run_config['env_parameters']['DATASET'],
-                env_parameters=run_config['env_parameters'],
-                run_parameters=run_config['run_parameters'],
+                dataset_path=env_params['DATASET'],
+                env_parameters=env_params,
+                run_parameters=run_params,
             )
             if current_params in existing_runs:
                 logger.info(f"Found existing configuration. {current_params}. Skipping.")
@@ -229,7 +242,7 @@ class Repeater:
                     path_to_run_params=path_to_run_params,
                     stdout_logfile=os.path.join(self.stdout_log_dir, f'run-{run_uid}.log'),
                     workdir=run_config['workdir'],
-                    env_params=run_config['env_parameters'],
+                    env_params=env_params,
                 )
 
     async def _execute_run(self, rep_run: RepetitionRun) -> None:
@@ -281,16 +294,22 @@ class Repeater:
                         f"Starting all {len(configurations)} configurations.")
             await asyncio.wait(processes)
 
+    def _check_for_mlflow(self):
+        assert self.mlflow_tracking_uri is not None
+
 
 class DryRunRepeater(Repeater):
-    def _save_params(self, path_to_save_params: str, params: Parameters) -> t.Tuple[str, uuid.UUID]:
-        if self.mlflow_tracking_uri is None:
-            self.mlflow_tracking_uri = "http://some-mlflow-instance:5000"
-            result = super()._save_params(path_to_save_params, params)
-            self.mlflow_tracking_uri = None
-            return result
-        else:
-            return super()._save_params(path_to_save_params, params)
+    # def _save_params(self, path_to_save_params: str, params: Parameters) -> t.Tuple[str, uuid.UUID]:
+    #     if self.mlflow_tracking_uri is None:
+    #         self.mlflow_tracking_uri = "http://some-mlflow-instance:5000"
+    #         result = super()._save_params(path_to_save_params, params)
+    #         self.mlflow_tracking_uri = None
+    #         return result
+    #     else:
+    #         return super()._save_params(path_to_save_params, params)
+
+    def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.List[Parameters]:
+        return []
 
     async def _execute_run(self, rep_run: RepetitionRun) -> None:
         pprint(rep_run)
@@ -306,7 +325,7 @@ class DryRunRepeater(Repeater):
 @click.option('--log-file', default="/var/log/repeater.log",
               help='a log file to write logs of the algorithm execution to')
 @click.option('--tag', required=True, type=str, help='Experiment name for MlFlow experiments')
-@click.option('--mlflow-tracking-uri', default=None, help='MlFlow tracking URI')
+@click.option('--mlflow-tracking-uri', required=True, help='MlFlow tracking URI')
 @click.option('--dry-run', is_flag=True, default=False,  help="Dry Run mode")
 def main(
         python_config: str,
