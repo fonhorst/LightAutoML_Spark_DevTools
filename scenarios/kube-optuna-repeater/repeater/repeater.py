@@ -268,6 +268,7 @@ class Repeater:
 
     async def run_repetitions(self, max_parallel_processes: t.Optional[int]):
         logger.info(f"Starting the run with experiment tag {self.run_tag}")
+        self._prepare_folders()
         configurations = list(self._prepare_configurations())
         configurations = random.sample(configurations, len(configurations))
         if not len(configurations):
@@ -297,6 +298,9 @@ class Repeater:
     def _check_for_mlflow(self):
         assert self.mlflow_tracking_uri is not None
 
+    def _prepare_folders(self):
+        os.makedirs(self.stdout_log_dir, exist_ok=True)
+
 
 class DryRunRepeater(Repeater):
     def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.Set[Parameters]:
@@ -304,7 +308,7 @@ class DryRunRepeater(Repeater):
 
     async def _execute_run(self, rep_run: RepetitionRun) -> None:
         pprint(rep_run)
-        sys.stdout.flush()
+        await super()._execute_run(rep_run)
 
 
 @click.command(context_settings=dict(allow_extra_args=True))

@@ -14,7 +14,7 @@ configurations = {
             "cmd": "bash",
             "experiment_script_path": "/src/examples-spark/parallel-optuna.py",
             "spark_submit_exec_path": "/src/yarn-submit",
-            "workdir": "/src/repeater",
+            "workdir": "/src",
             "mlflow_experiment_id": "167",
             "env_parameters": {
                 "HADOOP_CONF_DIR": "/etc/hadoop",

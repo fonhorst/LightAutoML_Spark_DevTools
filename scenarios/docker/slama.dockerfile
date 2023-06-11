@@ -27,7 +27,7 @@ COPY $SLAMA_BUILD_TMP/requirements.txt /src
 COPY $SLAMA_BUILD_TMP/sparklightautoml_dev-${SLAMA_WHEEL_VERSION}-py3-none-any.whl /src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl
 COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar /src
 COPY $SLAMA_BUILD_TMP/examples-spark /src/examples-spark
-COPY $SLAMA_BUILD_TMP/repeater /src/repeater
+COPY $SLAMA_BUILD_TMP/kube-optuna-repeater /src/kube-optuna-repeater
 COPY $SLAMA_BUILD_TMP/conf /src/conf
 
 ENV SLAMA_WHEEL_VERSION=${SLAMA_WHEEL_VERSION}

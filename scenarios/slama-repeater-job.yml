@@ -26,7 +26,7 @@ spec:
             mountPath: /etc/hadoop
         command: ["python3"]
         args:
-          - "/src/repeater/repeater.py"
+          - "/src/kube-optuna-repeater/repeater/repeater.py"
           - "--config=/src/conf/optuna-config.py"
           - "--parallel=1"
           - "--mlflow-tracking-uri=http://node2.bdcl:8811"
