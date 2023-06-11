@@ -1,0 +1,37 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: slama-yarn-job
+  labels:
+    app: slama-yarn-job
+spec:
+  template:
+    metadata:
+      labels:
+        app: slama-yarn-job
+      annotations:
+        "sidecar.istio.io/inject": "false"
+    spec:
+      volumes:
+        - name: hadoop-configs
+          configMap:
+            name: hadoop-configs
+      containers:
+      - name: slama-yarn
+        image: node2.bdcl:5000/slama:latest
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: hadoop-configs
+            mountPath: /etc/hadoop
+        args:
+          - "/src/repeater/repeater.py"
+          - "--config=/src/conf/optuna-config.py"
+          - "--parallel=1"
+          - "--mlflow-tracking-uri=http://node2.bdcl:8811"
+          - "--tag=optuna-run"
+        env:
+          - name: HADOOP_CONF_DIR
+            value: /etc/hadoop
+      restartPolicy: Never
+  backoffLimit: 0

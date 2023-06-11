@@ -296,7 +296,7 @@ class DryRunRepeater(Repeater):
 @click.option('--log-file', default="/var/log/repeater.log",
               help='a log file to write logs of the algorithm execution to')
 @click.option('--tag', required=True, type=str, help='Experiment name for MlFlow experiments')
-@click.option('--mlflow_tracking_uri', default=None, help='MlFlow tracking URI')
+@click.option('--mlflow-tracking-uri', default=None, help='MlFlow tracking URI')
 @click.option('--dry-run', is_flag=True, default=False,  help="Dry Run mode")
 def main(
         python_config: str,

@@ -12,6 +12,8 @@ RUN pip install pyspark==3.2.0
 RUN ln -s /usr/local/lib/python3.9/site-packages/pyspark/bin/spark-submit /usr/bin/spark-submit
 RUN mkdir -p /src
 
+RUN pip install click mlflow-skinny
+
 COPY yarn-submit /src
 RUN chmod 755 /src/yarn-submit
 
@@ -25,6 +27,7 @@ COPY $SLAMA_BUILD_TMP/requirements.txt /src
 COPY $SLAMA_BUILD_TMP/sparklightautoml_dev-${SLAMA_WHEEL_VERSION}-py3-none-any.whl /src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl
 COPY $SLAMA_BUILD_TMP/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar /src
 COPY $SLAMA_BUILD_TMP/examples-spark /src/examples-spark
+COPY $SLAMA_BUILD_TMP/repeater /src/repeater
 
 ENV SLAMA_WHEEL_VERSION=${SLAMA_WHEEL_VERSION}
 ENV SLAMA_JAR_VERSION=${SLAMA_JAR_VERSION}

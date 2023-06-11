@@ -23,6 +23,8 @@ function build_images() {
   cp ${slama_path}/jars/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar ${slama_build_path}
   cp ${slama_path}/requirements.txt ${slama_build_path}
   cp -r examples-spark ${slama_build_path}/examples-spark/
+  cp -r kube-optuna-repeater/repeater ${slama_build_path}/repeater/
+  cp -r conf ${slama_build_path}/conf/
 
   docker build \
     --build-arg SLAMA_WHEEL_VERSION="${SLAMA_WHEEL_VERSION}" \
