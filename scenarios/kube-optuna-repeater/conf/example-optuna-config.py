@@ -16,6 +16,8 @@ configurations = {
             "spark_submit_exec_path": "/src/repeater/optuna-spark-submit",
             "workdir": "/src/repeater",
             "env_parameters": {
+                "DATASET": datset,
+                "EXP_JOB_PARALLELISM": parallelism,
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",
                 "DRIVER_MAX_RESULT_SIZE": "5g",

@@ -195,39 +195,32 @@ class Repeater:
     def _prepare_configurations(self) -> t.Generator[RepetitionRun, None, None]:
         logger.info("Finding existing runs for an experiment. Preparing the list of configurations for the run")
         path_to_save_params: str = self.configuration['path_to_save_params']
-        configurations: t.List[dict] = self.configuration['configuration']
-        if configurations is None:
-            configurations = []
-        dataset_paths: t.List[str] = self.configuration['dataset_paths']
-        if dataset_paths is None:
-            dataset_paths = []
+        configurations: t.List[dict] = self.configuration.get('configuration', None)
 
         existing_runs = self._get_existing_runs()
-
-        for data_path in dataset_paths:
-            for run_config in configurations:
-                current_params = Parameters(
-                    dataset_path=data_path,
-                    env_parameters=run_config['env_parameters'],
-                    run_parameters=run_config['run_parameters'],
+        for run_config in configurations:
+            current_params = Parameters(
+                dataset_path=run_config['env_parameters']['DATASET'],
+                env_parameters=run_config['env_parameters'],
+                run_parameters=run_config['run_parameters'],
+            )
+            if current_params in existing_runs:
+                logger.info(f"Found existing configuration. {current_params}. Skipping.")
+            else:
+                path_to_run_params, run_uid = self._save_params(
+                    path_to_save_params=path_to_save_params,
+                    params=current_params,
                 )
-                if current_params in existing_runs:
-                    logger.info(f"Found existing configuration. {current_params}. Skipping.")
-                else:
-                    path_to_run_params, run_uid = self._save_params(
-                        path_to_save_params=path_to_save_params,
-                        params=current_params,
-                    )
-                    yield RepetitionRun(
-                        run_uid=run_uid,
-                        cmd=run_config['cmd'],
-                        spark_submit_exec_path=run_config['spark_submit_exec_path'],
-                        experiment_script_path=run_config['experiment_script_path'],
-                        path_to_run_params=path_to_run_params,
-                        stdout_logfile=os.path.join(self.stdout_log_dir, f'run-{run_uid}.log'),
-                        workdir=run_config['workdir'],
-                        env_params=run_config['env_parameters'],
-                    )
+                yield RepetitionRun(
+                    run_uid=run_uid,
+                    cmd=run_config['cmd'],
+                    spark_submit_exec_path=run_config['spark_submit_exec_path'],
+                    experiment_script_path=run_config['experiment_script_path'],
+                    path_to_run_params=path_to_run_params,
+                    stdout_logfile=os.path.join(self.stdout_log_dir, f'run-{run_uid}.log'),
+                    workdir=run_config['workdir'],
+                    env_params=run_config['env_parameters'],
+                )
 
     async def _execute_run(self, rep_run: RepetitionRun) -> None:
         logger.info(f"Starting process with uid {rep_run.run_uid}, cmd {rep_run.cmd} and args {rep_run.args}")
@@ -295,7 +288,7 @@ class DryRunRepeater(Repeater):
 
 
 @click.command(context_settings=dict(allow_extra_args=True))
-@click.option('--config', 'yaml_config', required=True, help='a path to the config file', type=str)
+@click.option('--config', 'python_config', required=True, help='a path to the config file', type=str)
 @click.option('--runs-log-dir',
               default="/var/log", help='a path to the directory where logs of all runs will be stored', type=str)
 @click.option('--parallel', default=None,
@@ -306,7 +299,7 @@ class DryRunRepeater(Repeater):
 @click.option('--mlflow_tracking_uri', default=None, help='MlFlow tracking URI')
 @click.option('--dry-run', is_flag=True, default=False,  help="Dry Run mode")
 def main(
-        yaml_config: str,
+        python_config: str,
         mlflow_tracking_uri: t.Optional[str],
         runs_log_dir: str,
         parallel: t.Optional[int],
@@ -317,8 +310,10 @@ def main(
     logging.config.dictConfig(get_logging_config(log_file))
     logger.info(f"Starting repeater with arguments: {sys.argv}")
 
-    with open(yaml_config, "r") as f:
-        configuration = yaml.safe_load(f)
+    globals_dict = dict()
+    with open(python_config, "r") as f:
+        exec(f.read(), globals_dict)
+        configuration = globals_dict['configurations']
 
     if dry_run:
         repeater = DryRunRepeater(
