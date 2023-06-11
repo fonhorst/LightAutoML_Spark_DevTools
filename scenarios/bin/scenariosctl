@@ -105,6 +105,14 @@ function main () {
           stop_scenario
           ;;
 
+      "restart-repeater")
+          restart_repeater
+          ;;
+
+      "stop-repeater")
+          stop_repeater
+          ;;
+
       "help")
           help
           ;;

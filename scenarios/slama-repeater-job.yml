@@ -2,14 +2,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: slama-yarn-job
+  name: slama-repeater-job
   labels:
-    app: slama-yarn-job
+    app: slama-repeater-job
 spec:
   template:
     metadata:
       labels:
-        app: slama-yarn-job
+        app: slama-repeater-job
       annotations:
         "sidecar.istio.io/inject": "false"
     spec:
