@@ -1,6 +1,6 @@
 import itertools
 
-parallelism_degrees = [1, 2, 4, 8, 16]
+parallelism_degrees = ["1", "2", "4", "8", "16"]
 
 datasets = [
     "hdfs://hacluster:8020/tmp/spark_data/feature_processor/kaggle-used-cars__lgb_adv.dataset",
@@ -15,6 +15,7 @@ configurations = {
             "experiment_script_path": "/opt/experiments/scripts/experiment.py",
             "spark_submit_exec_path": "/src/repeater/optuna-spark-submit",
             "workdir": "/src/repeater",
+            "mlflow_experiment_id": 167,
             "env_parameters": {
                 "DATASET": datset,
                 "EXP_JOB_PARALLELISM": parallelism,

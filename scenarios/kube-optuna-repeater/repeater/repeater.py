@@ -126,11 +126,13 @@ class Repeater:
             stdout_log_dir: str,
             mlflow_tracking_uri: t.Optional[str] = None,
             run_tag: t.Optional[str] = None,
+            check_existing_experiments: bool = True
     ):
         self.configuration = configuration
         self.mlflow_tracking_uri = mlflow_tracking_uri
         self.run_tag = run_tag if run_tag is not None else str(uuid.uuid4())
         self.stdout_log_dir = stdout_log_dir
+        self.check_existing_experiments = check_existing_experiments
         logger.info(f"Running with RUN TAG: {self.run_tag}")
 
     @staticmethod
@@ -175,14 +177,16 @@ class Repeater:
             )
         return existing_runs
 
-    def _get_existing_runs(self) -> t.List[Parameters]:
-        if self.mlflow_tracking_uri is None:
+    def _get_existing_runs(self, mlflow_experiments_ids: t.List[str]) -> t.List[Parameters]:
+        if self.mlflow_tracking_uri is None or not self.check_existing_experiments:
             return []
 
         mlflow.set_tracking_uri(self.mlflow_tracking_uri)
-        all_experiments = [
-            exp.experiment_id for exp in mlflow.search_experiments(filter_string='attribute.name != "Default"')
-        ]
+
+        # all_experiments = [
+        #     exp.experiment_id for exp in mlflow.search_experiments(filter_string='attribute.name != "Default"')
+        # ]
+        all_experiments = mlflow_experiments_ids
 
         runs = mlflow.search_runs(
             experiment_ids=all_experiments,
@@ -197,7 +201,13 @@ class Repeater:
         path_to_save_params: str = self.configuration['path_to_save_params']
         configurations: t.List[dict] = self.configuration.get('configuration', None)
 
-        existing_runs = self._get_existing_runs()
+        mlflow_exp_ids = list({
+            run_config['mlflow_experiment_id']
+            for run_config in configurations
+            if 'mlflow_experiment_id' in run_config
+        })
+
+        existing_runs = self._get_existing_runs(mlflow_exp_ids)
         for run_config in configurations:
             current_params = Parameters(
                 dataset_path=run_config['env_parameters']['DATASET'],
