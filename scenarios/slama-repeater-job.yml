@@ -17,6 +17,9 @@ spec:
         - name: hadoop-configs
           configMap:
             name: hadoop-configs
+        - name: data
+          persistentVolumeClaim:
+            claimName: spark-lama-data
       containers:
       - name: slama-yarn
         image: node2.bdcl:5000/slama:latest
@@ -24,10 +27,13 @@ spec:
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop
+          - name: data
+            mountPath: /opt/spark_data/
         command: ["python3"]
         args:
           - "/src/kube-optuna-repeater/repeater/repeater.py"
           - "--config=/src/conf/optuna-config.py"
+          - "--runs-log-dir=/opt/spark_data/repeater-logs"
           - "--parallel=1"
           - "--mlflow-tracking-uri=http://node2.bdcl:8811"
           - "--tag=optuna-run"

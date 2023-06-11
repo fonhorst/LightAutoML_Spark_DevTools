@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import logging
 import logging.config
@@ -129,10 +130,11 @@ class Repeater:
             run_tag: t.Optional[str] = None,
             check_existing_experiments: bool = True
     ):
+        current_dt = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         self.configuration = configuration
         self.mlflow_tracking_uri = mlflow_tracking_uri
         self.run_tag = run_tag if run_tag is not None else str(uuid.uuid4())
-        self.stdout_log_dir = stdout_log_dir
+        self.stdout_log_dir = os.path.join(stdout_log_dir, f"runs_{current_dt}")
         self.check_existing_experiments = check_existing_experiments
         logger.info(f"Running with RUN TAG: {self.run_tag}")
 

@@ -19,6 +19,8 @@ configurations = {
             "mlflow_experiment_id": "167",
             "env_parameters": {
                 "HADOOP_CONF_DIR": "/etc/hadoop",
+                "SLAMA_WHEEL_VERSION": "0.3.2",
+                "SLAMA_JAR_VERSION": "0.1.1",
                 "DATASET": datset,
                 "EXP_JOB_PARALLELISM": parallelism,
                 "DRIVER_CORES": "6",
