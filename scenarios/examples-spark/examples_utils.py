@@ -158,7 +158,19 @@ DATASETS = {
         path=ds_path("kaggle-a/train_data"),
         task_type="binary",
         roles={'target': 'team_A_scoring_within_10sec', 'drop': ['team_B_scoring_within_10sec']}
-    )
+    ),
+
+    "synth_10kk_100": Dataset(
+        path=ds_path('synth_datasets/synth_dataset_classification_n_10_000_000_f_100.csv'),
+        roles={'target': 'target'},
+        task_type='binary'
+    ),
+
+    "synth_5kk_100": Dataset(
+        path=ds_path('synth_datasets/synth_dataset_classification_n_5_000_000_f_100_part_of_10mln.csv'),
+        roles={'target': 'target'},
+        task_type='binary'
+    ),
 }
 
 

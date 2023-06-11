@@ -31,9 +31,9 @@ spec:
 #        args: ["/src/examples-spark/env-run.py"]
 #        args: ["/src/examples-spark/lgbm-folds-parallel.py"]
 #        args: ["/src/examples-spark/feature-processing-only.py"]
-#        args: ["/src/examples-spark/feature-processing-parallel.py"]
+        args: ["/src/examples-spark/feature-processing-parallel.py"]
 #        args: ["/src/examples-spark/lgbm-parallel.py"]
-        args: ["/src/examples-spark/parallel-optuna.py"]
+#        args: ["/src/examples-spark/parallel-optuna.py"]
 #        args: ["/src/examples-spark/test-run.py"]
 #        args: ["/src/examples-spark/reader-only.py"]
 #        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
@@ -62,7 +62,8 @@ spec:
 #            value: "used_cars_dataset_4x"
 #            value: "used_cars_dataset_10x"
 #            value: "lama_test_dataset"
-            value: "kaggle_a"
+#            value: "kaggle_a"
+            value: "synth_5kk_100"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
