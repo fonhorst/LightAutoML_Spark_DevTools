@@ -1,0 +1,33 @@
+---
+path_to_save_params: /tmp/experimental_parameters
+
+configuration:
+  - name: "some"
+    conf:
+      cmd: "bash"
+      experiment_script_path: "/opt/experiments/scripts/experiment.py"
+      spark_submit_exec_path: "/src/repeater/optuna-spark-submit"
+      workdir: "/src/repeater"
+      env_parameters:
+        DRIVER_CORES: "6"
+        DRIVER_MEMORY: "16g"
+        DRIVER_MAX_RESULT_SIZE: "5g"
+        EXECUTOR_INSTANCES: "16"
+        EXECUTOR_CORES: "4"
+        EXECUTOR_MEMORY: "40g"
+      run_parameters:
+        feat_pipe: "lgb_adv"  # linear, lgb_simple or lgb_adv
+        n_trials: 64
+        timeout: 60000
+        stabilize: 0
+        numIterations: 500
+        earlyStoppingRound: 50000
+    variation:
+      env_parameters:
+        EXP_JOB_PARALLELISM: [ "1", "2", "4", "8", "16" ]
+        DATASET:
+          - "hdfs://hacluster:8020/tmp/spark_data/feature_processor/kaggle-used-cars__lgb_adv.dataset"
+          - "hdfs://hacluster:8020/tmp/spark_data/openml_datasets/Airlines_DepDelay_1M__linear.csv"
+          #  - "hdfs://hacluster:8020/tmp/spark_data/openml_datasets/Allstate_Claims_Severity__linear.csv"
+          #  - "hdfs://hacluster:8020/tmp/spark_data/openml_datasets/medical_charges__linear.csv"
+          #  - "hdfs://hacluster:8020/tmp/spark_data/opensource_datasets/kaggle-used-cars__linear.csv"

@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: optuna-params-pvc
+spec:
+  storageClassName: manual
+  volumeName: optuna-params-pv
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 25Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tmp-optuna-logs-pvc
+spec:
+  storageClassName: manual
+  volumeName: tmp-optuna-logs-pv
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 25Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: optuna-artifacts-pvc
+spec:
+  storageClassName: manual
+  volumeName: optuna-artifacts-pv
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 25Gi

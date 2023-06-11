@@ -1,0 +1,72 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: optuna-experiments
+  labels:
+    app: repeater
+spec:
+  template:
+    metadata:
+      annotations:
+        "sidecar.istio.io/inject": "false"
+    spec:
+      nodeName: "10.150.0.172"
+      serviceAccountName: spark
+      volumes:
+        - name: script
+          configMap:
+            name: optuna-script
+        - name: config
+          configMap:
+            name: optuna-config
+        - name: optuna-spark-submit
+          configMap:
+            name: optuna-spark-submit
+        - name: varlog
+          persistentVolumeClaim:
+            claimName: tmp-optuna-logs-pvc
+        - name: optuna-params
+          persistentVolumeClaim:
+            claimName: optuna-params-pvc
+      containers:
+        - name: slama-experiments
+          image: anastasiiazakharova/optuna-slama:latest
+          imagePullPolicy: IfNotPresent # IfNotPresent # Never # Always
+          args: [
+            "--config", "/opt/experiments/configs/optuna-config.yml",
+            "--parallel", "1",
+            "--tag", "Optuna_experiments",
+            "--mlflow_tracking_uri", "http://mlflow-exps.default.svc.cluster.local:5000"
+          ]
+          volumeMounts:
+            - name: script
+              mountPath: '/opt/experiments/scripts/experiment.py'
+              readOnly: true
+              subPath: parallel-optuna.py
+            - name: config
+              mountPath: '/opt/experiments/configs/optuna-config.yml'
+              readOnly: true
+              subPath: optuna-config.yml
+            - name: optuna-spark-submit
+              mountPath: '/src/repeater/optuna-spark-submit'
+              readOnly: true
+              subPath: optuna-spark-submit
+            - name: varlog
+              mountPath: "/var/log/"
+            - name: optuna-params
+              mountPath: "/tmp/experimental_parameters/"
+#            - name: spark-local-dir-emp
+#              mountPath: "/tmp/spark_tmp/"
+#          env:
+#            - name: EXECUTOR_MEMORY
+#              value: "20g"
+#            - name: HDFS_HOST
+#              value: "hdfs://hacluster:8020"
+      tolerations:
+        - key: "app"
+          operator: "Equal"
+          value: "repeater"
+          effect: "NoSchedule"
+      restartPolicy: Never
+  backoffLimit: 0
