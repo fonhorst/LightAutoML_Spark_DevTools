@@ -1,12 +1,6 @@
 import itertools
 
-parallelism_degrees = ["1", "2", "4", "8", "16"]
-
-datasets = [
-    "synth_10kk_100",
-    "synth_5kk_100"
-    # "lama_test_dataset"
-]
+confs = [("8", "synth_5kk_100"), ("4", "synth_10kk_100"), ("8", "synth_10kk_100")]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
@@ -31,16 +25,8 @@ configurations = {
                 "EXECUTOR_MEMORY": "40g",
                 "PYSPARK_PYTHON_PATH": "/python_envs/.replay_venv/bin/python3.9",
                 "WAREHOUSE_DIR": "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
-            },
-            # "run_parameters": {
-            #     "feat_pipe": "lgb_adv",
-            #     "n_trials": 64,
-            #     "timeout": 60000,
-            #     "stabilize": 0,
-            #     "numIterations": 500,
-            #     "earlyStoppingRound": 50000
-            # }
+            }
         }
-        for parallelism, datset in itertools.product(parallelism_degrees, datasets)
+        for parallelism, datset in confs
     ]
 }

@@ -23,7 +23,7 @@ from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_e
 from sparklightautoml.validation.base import SparkBaseTrainValidIterator
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
-from examples_utils import get_spark_session
+from examples_utils import get_spark_session, train_test_split
 
 logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
 logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
@@ -143,40 +143,6 @@ class ReportingParallelComputionsManager(ParallelComputationsManager):
     def session(self, dataset: Optional[SparkDataset] = None) -> ParallelComputationsSession:
         self.last_session = ReportingParallelComputeSession(dataset, self._parallelism, self._use_location_prefs_mode)
         return self.last_session
-
-
-def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float, int] = 0.2) \
-        -> Tuple[SparkDataset, SparkDataset]:
-
-    if isinstance(test_slice_or_fold_num, float):
-        assert 0 <= test_slice_or_fold_num <= 1
-        train, test = dataset.data.randomSplit([1 - test_slice_or_fold_num, test_slice_or_fold_num])
-    else:
-        train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num).repartition(
-            len(get_executors()) * get_executors_cores()
-        )
-        test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num).repartition(
-            len(get_executors()) * get_executors_cores()
-        )
-
-    train, test = train.cache(), test.cache()
-    train.write.mode("overwrite").format("noop").save()
-    test.write.mode("overwrite").format("noop").save()
-
-    rows = (
-        train
-        .withColumn("__partition_id__", sf.spark_partition_id())
-        .groupby("__partition_id__").agg(sf.count("*").alias("all_values"))
-        .collect()
-    )
-    for row in rows:
-        assert row["all_values"] != 0, f"Empty partitions: {row['__partition_id_']}"
-
-    train_dataset, test_dataset = dataset.empty(), dataset.empty()
-    train_dataset.set_data(train, dataset.features, roles=dataset.roles)
-    test_dataset.set_data(test, dataset.features, roles=dataset.roles)
-
-    return train_dataset, test_dataset
 
 
 if __name__ == "__main__":

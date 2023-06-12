@@ -32,7 +32,9 @@ spec:
         command: ["python3"]
         args:
           - "/src/kube-optuna-repeater/repeater/repeater.py"
-          - "--config=/src/conf/optuna-config.py"
+#          - "--config=/src/conf/optuna-config.py"
+#          - "--config=/src/conf/optuna-config-partial-instances-curves.py"
+          - "--config=/src/conf/scalability-mlalgo-config.py.py"
           - "--runs-log-dir=/opt/spark_data/repeater-logs"
           - "--parallel=1"
           - "--mlflow-tracking-uri=http://node2.bdcl:8811"

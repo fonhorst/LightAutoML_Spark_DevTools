@@ -1,46 +1,34 @@
 import itertools
 
-parallelism_degrees = ["1", "2", "4", "8", "16"]
+executors = ["1", "2", "4", "8", "16"]
 
-datasets = [
-    "synth_10kk_100",
-    "synth_5kk_100"
-    # "lama_test_dataset"
-]
+ml_algos = ["linear_l2", "lgb"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
     "configuration": [
         {
             "cmd": "bash",
-            "experiment_script_path": "/src/examples-spark/parallel-optuna.py",
+            "experiment_script_path": "/src/examples-spark/scalability-ml-algos.py",
             "spark_submit_exec_path": "/src/yarn-submit",
             "workdir": "/src",
-            "mlflow_experiment_id": "167",
+            "mlflow_experiment_id": "---",
             "env_parameters": {
                 "HADOOP_CONF_DIR": "/etc/hadoop",
                 "SLAMA_WHEEL_VERSION": "0.3.2",
                 "SLAMA_JAR_VERSION": "0.1.1",
-                "DATASET": datset,
-                "EXP_JOB_PARALLELISM": parallelism,
+                "EXP_ML_ALGO": ml_algo,
+                "DATASET": "used_cars_dataset_1x",
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",
                 "DRIVER_MAX_RESULT_SIZE": "5g",
-                "EXECUTOR_INSTANCES": "16",
+                "EXECUTOR_INSTANCES": execs,
                 "EXECUTOR_CORES": "4",
                 "EXECUTOR_MEMORY": "40g",
                 "PYSPARK_PYTHON_PATH": "/python_envs/.replay_venv/bin/python3.9",
                 "WAREHOUSE_DIR": "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
-            },
-            # "run_parameters": {
-            #     "feat_pipe": "lgb_adv",
-            #     "n_trials": 64,
-            #     "timeout": 60000,
-            #     "stabilize": 0,
-            #     "numIterations": 500,
-            #     "earlyStoppingRound": 50000
-            # }
+            }
         }
-        for parallelism, datset in itertools.product(parallelism_degrees, datasets)
+        for ml_algo, execs in itertools.product(ml_algos, executors)
     ]
 }
