@@ -12,7 +12,7 @@ configurations = {
             "experiment_script_path": "/src/examples-spark/scalability-ml-algos.py",
             "spark_submit_exec_path": "/src/yarn-submit",
             "workdir": "/src",
-            "mlflow_experiment_id": "---",
+            "mlflow_experiment_id": "168",
             "env_parameters": {
                 "HADOOP_CONF_DIR": "/etc/hadoop",
                 "SLAMA_WHEEL_VERSION": "0.3.2",
