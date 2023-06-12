@@ -20,15 +20,18 @@ from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float, int] = 0.2) \
         -> Tuple[SparkDataset, SparkDataset]:
 
+    spark = SparkSession.getActiveSession()
+    exec_instances = int(spark.conf.get('spark.executor.instances', '1'))
+
     if isinstance(test_slice_or_fold_num, float):
         assert 0 <= test_slice_or_fold_num <= 1
         train, test = dataset.data.randomSplit([1 - test_slice_or_fold_num, test_slice_or_fold_num])
     else:
         train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num).repartition(
-            1 * 4
+            1 * exec_instances
         )
         test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num).repartition(
-            1 * 4
+            1 * exec_instances
         )
 
     train, test = train.cache(), test.cache()
