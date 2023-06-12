@@ -3,10 +3,10 @@ import itertools
 parallelism_degrees = ["1", "2", "4", "8", "16"]
 
 datasets = [
-    "used_cars_dataset_1x",
-    "kaggle_a",
-    # "synth_10kk_100",
-    # "synth_5kk_100"
+    # "used_cars_dataset_1x",
+    # "kaggle_a",
+    "synth_10kk_100",
+    "synth_5kk_100"
     # "lama_test_dataset"
 ]
 
