@@ -53,7 +53,9 @@ def main():
             "dataset": dataset_name,
             "dataset_path": dataset_path,
             "feat_pipe": feat_pipe,
-            "mlalgo_default_params": default_params
+            "mlalgo_default_params": default_params,
+            "exec_instances": spark.conf.get('spark.executor.instances'),
+            "exec_cores": spark.conf.get('spark.executor.cores'),
         })
         mlflow.log_dict(dict(spark.sparkContext.getConf().getAll()), "spark_conf.json")
 
