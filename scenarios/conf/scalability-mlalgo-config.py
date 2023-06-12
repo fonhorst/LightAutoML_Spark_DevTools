@@ -4,7 +4,7 @@ import itertools
 # ml_algos = ["linear_l2", "lgb"]
 
 executors = ["1", "2", "4", "8"]
-ml_algos = ["linear_l2"]
+ml_algos = ["lgb"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
