@@ -7,6 +7,15 @@ from pyspark.sql import functions as sf
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 
+# from sparklightautoml.validation.iterators import SparkFoldsIterator
+# from sparklightautoml.validation.base import SparkBaseTrainValidIterator, TrainVal
+# from sparklightautoml.pipelines.features.base import SparkFeaturesPipeline
+# from sparklightautoml import mlwriters
+# Important !!! CatBoost has problems with dependencies of SynapseML
+# from synapse.ml.lightgbm import LightGBMClassificationModel
+# from synapse.ml.lightgbm import LightGBMRegressionModel
+# from synapse.ml.onnx import ONNXModel
+
 
 def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float, int] = 0.2) \
         -> Tuple[SparkDataset, SparkDataset]:
@@ -48,6 +57,7 @@ if __name__ == "__main__":
             .builder
             .master("local[4]")
             .config("spark.jars.packages", "ai.catboost:catboost-spark_3.2_2.12:1.2")
+            .config("spark.jars", "../../../SLAMA/jars/spark-lightautoml_2.12-0.1.1.jar")
             .config("spark.driver.extraJavaOptions", "-Dio.netty.tryReflectionSetAccessible=true")
             .config("spark.executor.extraJavaOptions", "-Dio.netty.tryReflectionSetAccessible=true")
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
@@ -80,7 +90,6 @@ if __name__ == "__main__":
     )
 
     train_ds, test_ds = train_test_split(ds, test_slice_or_fold_num=4)
-
     assembler = VectorAssembler(inputCols=ds.features, outputCol="features", handleInvalid="keep")
 
     trainPool = catboost_spark.Pool(
