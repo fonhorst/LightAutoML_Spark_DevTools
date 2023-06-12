@@ -3,8 +3,10 @@ import itertools
 parallelism_degrees = ["1", "2", "4", "8", "16"]
 
 datasets = [
-    "synth_10kk_100",
-    "synth_5kk_100"
+    "used_cars_dataset_1x",
+    "kaggle_a",
+    # "synth_10kk_100",
+    # "synth_5kk_100"
     # "lama_test_dataset"
 ]
 
@@ -22,6 +24,7 @@ configurations = {
                 "SLAMA_WHEEL_VERSION": "0.3.2",
                 "SLAMA_JAR_VERSION": "0.1.1",
                 "DATASET": datset,
+                "EXP_ML_ALGO": "linear_l2",
                 "EXP_JOB_PARALLELISM": parallelism,
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",

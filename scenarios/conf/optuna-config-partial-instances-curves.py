@@ -17,6 +17,7 @@ configurations = {
                 "SLAMA_JAR_VERSION": "0.1.1",
                 "DATASET": datset,
                 "EXP_JOB_PARALLELISM": parallelism,
+                "EXP_ML_ALGO": "lgb",
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",
                 "DRIVER_MAX_RESULT_SIZE": "5g",

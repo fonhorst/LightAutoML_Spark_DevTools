@@ -4,7 +4,7 @@ import os
 import uuid
 from copy import deepcopy
 from logging import config
-from typing import Tuple, Union, Callable, Optional, Dict, List
+from typing import Union, Callable, Optional, Dict, List
 
 import mlflow
 import optuna
@@ -13,11 +13,12 @@ from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
 from sparklightautoml.computations.base import ComputationsSettings, ComputationSlot
 from sparklightautoml.computations.parallel import ParallelComputationsManager, ParallelComputationsSession
-from sparklightautoml.computations.utils import deecopy_tviter_without_dataset, get_executors, get_executors_cores
+from sparklightautoml.computations.utils import deecopy_tviter_without_dataset, get_executors
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 from sparklightautoml.ml_algo.base import SparkTabularMLAlgo
 from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
+from sparklightautoml.ml_algo.linear_pyspark import SparkLinearLBFGS
 from sparklightautoml.ml_algo.tuning.parallel_optuna import ParallelOptunaTuner
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer
 from sparklightautoml.validation.base import SparkBaseTrainValidIterator
@@ -28,6 +29,23 @@ from examples_utils import get_spark_session, train_test_split
 logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
 logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
 logger = logging.getLogger(__name__)
+
+
+def get_ml_algo():
+    ml_algo_name = os.environ.get("EXP_ML_ALGO", "linear_l2")
+
+    if ml_algo_name == "linear_l2":
+        feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
+        default_params = {'regParam': [1e-5], "maxIter": 100, "aggregationDepth": 2, "tol": 0.0}
+        ml_algo = SparkLinearLBFGS(default_params)
+    elif ml_algo_name == "lgb":
+        feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
+        default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
+        ml_algo = SparkBoostLGBM(default_params, use_barrier_execution_mode=True)
+    else:
+        raise ValueError(f"Unknown ml algo: {ml_algo_name}")
+
+    return feat_pipe, default_params, ml_algo
 
 
 class ProgressReportingOptunaTuner(ParallelOptunaTuner):
@@ -149,13 +167,12 @@ if __name__ == "__main__":
     logger.info("In the very beginning of parallel-optuna")
     spark = get_spark_session()
 
-    feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
     n_trials = 64
     timeout = 60000
     stabilize = False
-    default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
+    feat_pipe, default_params, ml_algo = get_ml_algo()
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
 
     # load and prepare data
@@ -186,11 +203,12 @@ if __name__ == "__main__":
         )
         # tuner = DefaultTuner()
 
-        ml_algo = SparkBoostLGBM(
-            default_params={"numIterations": 500, "earlyStoppingRound": 50_000},
-            use_barrier_execution_mode=True,
-            computations_settings=computations_manager_boosting
-        )
+        # ml_algo = SparkBoostLGBM(
+        #     default_params={"numIterations": 500, "earlyStoppingRound": 50_000},
+        #     use_barrier_execution_mode=True,
+        #     computations_settings=computations_manager_boosting
+        # )
+        ml_algo.computations_manager = computations_manager_boosting
         score = ds.task.get_dataset_metric()
 
         mlflow.log_params({

@@ -3,8 +3,11 @@ import itertools
 # executors = ["1", "2", "4", "8", "16"]
 # ml_algos = ["linear_l2", "lgb"]
 
-executors = ["1", "2", "4", "8"]
-ml_algos = ["lgb"]
+# executors = ["1", "2", "4", "8"]
+# ml_algos = ["lgb"]
+
+executors = ["16"]
+ml_algos = ["linear_l2", "lgb"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
@@ -20,8 +23,8 @@ configurations = {
                 "SLAMA_WHEEL_VERSION": "0.3.2",
                 "SLAMA_JAR_VERSION": "0.1.1",
                 "EXP_ML_ALGO": ml_algo,
-                # "DATASET": "used_cars_dataset_1x",
-                "DATASET": "kaggle_a",
+                "DATASET": "used_cars_dataset_1x",
+                # "DATASET": "kaggle_a",
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",
                 "DRIVER_MAX_RESULT_SIZE": "5g",
