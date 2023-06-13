@@ -40,12 +40,12 @@ def ds_path(rel_path: str) -> str:
 
 
 def rows_to_name(rows_count: int) -> str:
-    num = rows_count / 1_000_000
+    num = int(rows_count / 1_000_000)
     if (rows_count % 1_000_000 == 0) and num >= 1:
         return f"{num}m"
 
-    num = rows_count / 1_000
-    if (rows_count % 1_000) and num >= 1:
+    num = int(rows_count / 1_000)
+    if (rows_count % 1_000 == 0) and num >= 1:
         return f"{num}k"
 
     raise ValueError(f"Invalid count to make it into an abbreviation: {rows_count}")

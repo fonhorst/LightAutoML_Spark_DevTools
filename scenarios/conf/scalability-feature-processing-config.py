@@ -13,11 +13,18 @@ import itertools
 # executors = ["1", "2", "4", "8", "16"]
 # columns = [10, 100, 200, 500]
 ## rows = ["100k", "250k", "500k", "1m"]
+#
+# executors = ["1", "2", "4", "8", "16"]
+# columns = [10, 100, 200, 500]
+# rows = ["1m"]
+# datasets = [f"test_cardinality_{r}_{c}c" for r, c in itertools.product(rows, columns)]
+
 
 executors = ["1", "2", "4", "8", "16"]
 columns = [10, 100, 200, 500]
-rows = ["1m"]
+rows = ["100k", "250k", "500k"]
 datasets = [f"test_cardinality_{r}_{c}c" for r, c in itertools.product(rows, columns)]
+
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
