@@ -504,3 +504,12 @@ def get_ml_algo():
         raise ValueError(f"Unknown ml algo: {ml_algo_name}")
 
     return feat_pipe, default_params, ml_algo
+
+
+def check_allocated_executors():
+    spark = SparkSession.getActiveSession()
+    if not spark.sparkContext.master.startswith("local"):
+        allocated_executos_num = len(get_executors())
+        assert allocated_executos_num == int(spark.conf.get("spark.executor.instances")), \
+            f"Not all desired executors have been allocated: " \
+            f"{allocated_executos_num} != {spark.conf.get('spark.executor.instances')}"

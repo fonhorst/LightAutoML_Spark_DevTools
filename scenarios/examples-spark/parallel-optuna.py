@@ -12,18 +12,17 @@ from lightautoml.ml_algo.tuning.optuna import TunableAlgo
 from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
 from sparklightautoml.computations.base import ComputationsSettings
-from sparklightautoml.computations.utils import deecopy_tviter_without_dataset, get_executors
+from sparklightautoml.computations.utils import deecopy_tviter_without_dataset
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
 from sparklightautoml.ml_algo.base import SparkTabularMLAlgo
-from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
-from sparklightautoml.ml_algo.linear_pyspark import SparkLinearLBFGS
 from sparklightautoml.ml_algo.tuning.parallel_optuna import ParallelOptunaTuner
 from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer
 from sparklightautoml.validation.base import SparkBaseTrainValidIterator
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
-from examples_utils import get_spark_session, train_test_split, ReportingParallelComputionsManager, get_ml_algo
+from examples_utils import get_spark_session, train_test_split, ReportingParallelComputionsManager, \
+    get_ml_algo, check_allocated_executors
 
 logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
 logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
@@ -140,10 +139,7 @@ if __name__ == "__main__":
         persistence_manager=PlainCachePersistenceManager()
     )
 
-    allocated_executos_num = len(get_executors())
-    assert allocated_executos_num == int(spark.conf.get("spark.executor.instances")), \
-        f"Not all desired executors have been allocated: " \
-        f"{allocated_executos_num} != {spark.conf.get('spark.executor.instances')}"
+    check_allocated_executors()
 
     train_ds, test_ds = train_test_split(ds, test_slice_or_fold_num=4)
 

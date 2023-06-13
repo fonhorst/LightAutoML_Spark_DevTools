@@ -36,6 +36,7 @@ spec:
 #          - "--config=/src/conf/optuna-config-partial-instances-curves.py"
 #          - "--config=/src/conf/scalability-mlalgo-config.py"
           - "--config=/src/conf/scalability-cb-config.py"
+#          - "--config=/src/conf/scalability-shuffle-prepare-config.py"
           - "--runs-log-dir=/opt/spark_data/repeater-logs"
           - "--parallel=1"
           - "--mlflow-tracking-uri=http://node2.bdcl:8811"
