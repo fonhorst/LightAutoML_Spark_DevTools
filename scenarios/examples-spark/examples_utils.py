@@ -225,38 +225,6 @@ DATASETS = {
     ),
 
     **TEST_CARDINALITY_DATASETS
-
-    # "test_cardinality_1m_10c": Dataset(
-    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_10_columns_id_with_reg_target.parquet'),
-    #     roles={'target': 'target'},
-    #     task_type='reg',
-    #     file_format="parquet",
-    #     file_format_options={}
-    # ),
-    #
-    # "test_cardinality_1m_100c": Dataset(
-    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_100_columns_id_with_reg_target.parquet'),
-    #     roles={'target': 'target'},
-    #     task_type='reg',
-    #     file_format="parquet",
-    #     file_format_options={}
-    # ),
-    #
-    # "test_cardinality_1m_200c": Dataset(
-    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_200_columns_id_with_reg_target.parquet'),
-    #     roles={'target': 'target'},
-    #     task_type='reg',
-    #     file_format="parquet",
-    #     file_format_options={}
-    # ),
-    #
-    # "test_cardinality_1m_500c": Dataset(
-    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_500_columns_id_with_reg_target.parquet'),
-    #     roles={'target': 'target'},
-    #     task_type='reg',
-    #     file_format="parquet",
-    #     file_format_options={}
-    # ),
 }
 
 
