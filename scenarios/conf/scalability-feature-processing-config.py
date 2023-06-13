@@ -1,28 +1,25 @@
 import itertools
 
-# executors = ["1", "2", "4", "8"]
-# datasets = ["used_cars_dataset_1x", "kaggle_a"]
-# datasets = ["lama_test_dataset"]
-
-executors = ["16"]
-datasets = ["kaggle_a"]
+executors = ["1", "2", "4", "8"]
+datasets = ["kaggle_a",  "used_cars_dataset"]
 
 # executors = ["1", "2", "4", "8", "16"]
-# datasets = ["synth_10kk_100", "synth_5kk_100"]
+# datasets = ["kaggle_a",  "used_cars_dataset", "Click_prediction_small",  "covertype",  "Higgs"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
     "configuration": [
         {
             "cmd": "bash",
-            "experiment_script_path": "/src/examples-spark/cat-boost.py",
-            "spark_submit_exec_path": "/src/cb-yarn-submit",
+            "experiment_script_path": "/src/examples-spark/scalability-feature-processing-only.py",
+            "spark_submit_exec_path": "/src/yarn-submit",
             "workdir": "/src",
-            "mlflow_experiment_id": "168",
+            "mlflow_experiment_id": "170",
             "env_parameters": {
                 "HADOOP_CONF_DIR": "/etc/hadoop",
                 "SLAMA_WHEEL_VERSION": "0.3.2",
                 "SLAMA_JAR_VERSION": "0.1.1",
+                "EXP_FEAT_PIPE": "lgb_adv",
                 "DATASET": dataset,
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",
