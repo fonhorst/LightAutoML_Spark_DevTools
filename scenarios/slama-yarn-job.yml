@@ -47,7 +47,7 @@ spec:
 #            value: "http://mlflow-exps:5000"
             value: "http://node2.bdcl:8811"
           - name: EXPERIMENT
-            value: "167"
+            value: "0"
           - name: LOG_TO_MLFLOW
             value: "1"
           - name: EXECUTOR_INSTANCES
@@ -64,11 +64,13 @@ spec:
 #            value: "lama_test_dataset"
 #            value: "kaggle_a"
 #            value: "synth_5kk_100"
-            value: "lama_test_dataset"
+#            value: "used_cars_dataset_07x"
+#            value: "synth_7kk_100"
+            value: "synth_1kk_100"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
-            value: "8"
+            value: "3"
           - name: PARALLELISM_MODE
 #            value: "pref_locs"
             value: "no_parallelism"

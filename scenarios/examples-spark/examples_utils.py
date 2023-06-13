@@ -61,6 +61,10 @@ DATASETS = {
         path=ds_path("small_used_cars_data.csv"),
         **used_cars_params
     ),
+    "used_cars_dataset_07x": Dataset(
+        path=ds_path("derivative_datasets/07x_dataset.csv"),
+        **used_cars_params
+    ),
     "used_cars_dataset_1x": Dataset(
         path=ds_path("derivative_datasets/1x_dataset.csv"),
         **used_cars_params
@@ -171,8 +175,20 @@ DATASETS = {
         task_type='binary'
     ),
 
+    "synth_7kk_100": Dataset(
+        path=ds_path('synth_datasets/synth_dataset_classification_n_7_000_000_f_100_part_of_10mln.csv'),
+        roles={'target': 'target'},
+        task_type='binary'
+    ),
+
     "synth_5kk_100": Dataset(
         path=ds_path('synth_datasets/synth_dataset_classification_n_5_000_000_f_100_part_of_10mln.csv'),
+        roles={'target': 'target'},
+        task_type='binary'
+    ),
+
+    "synth_1kk_100": Dataset(
+        path=ds_path('synth_datasets/synth_dataset_classification_n_1_000_000_f_100.csv'),
         roles={'target': 'target'},
         task_type='binary'
     ),

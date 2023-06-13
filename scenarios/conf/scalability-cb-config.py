@@ -1,9 +1,14 @@
 import itertools
 
-executors = ["1", "2", "4", "8"]
+# executors = ["1", "2", "4", "8"]
 # datasets = ["used_cars_dataset_1x", "kaggle_a"]
-datasets = ["kaggle_a"]
 # datasets = ["lama_test_dataset"]
+
+executors = ["16"]
+datasets = ["used_cars_dataset_1x", "kaggle_a"]
+
+# executors = ["1", "2", "4", "8", "16"]
+# datasets = ["synth_10kk_100", "synth_5kk_100"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
