@@ -4,15 +4,14 @@ import os
 import uuid
 from copy import deepcopy
 from logging import config
-from typing import Union, Callable, Optional, Dict, List
+from typing import Union, Callable, Optional, Dict
 
 import mlflow
 import optuna
 from lightautoml.ml_algo.tuning.optuna import TunableAlgo
 from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
-from sparklightautoml.computations.base import ComputationsSettings, ComputationSlot
-from sparklightautoml.computations.parallel import ParallelComputationsManager, ParallelComputationsSession
+from sparklightautoml.computations.base import ComputationsSettings
 from sparklightautoml.computations.utils import deecopy_tviter_without_dataset, get_executors
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
@@ -24,28 +23,11 @@ from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_e
 from sparklightautoml.validation.base import SparkBaseTrainValidIterator
 from sparklightautoml.validation.iterators import SparkFoldsIterator
 
-from examples_utils import get_spark_session, train_test_split
+from examples_utils import get_spark_session, train_test_split, ReportingParallelComputionsManager, get_ml_algo
 
 logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
 logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
 logger = logging.getLogger(__name__)
-
-
-def get_ml_algo():
-    ml_algo_name = os.environ.get("EXP_ML_ALGO", "linear_l2")
-
-    if ml_algo_name == "linear_l2":
-        feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
-        default_params = {'regParam': [1e-5], "maxIter": 100, "aggregationDepth": 2, "tol": 0.0}
-        ml_algo = SparkLinearLBFGS(default_params)
-    elif ml_algo_name == "lgb":
-        feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
-        default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
-        ml_algo = SparkBoostLGBM(default_params, use_barrier_execution_mode=True)
-    else:
-        raise ValueError(f"Unknown ml algo: {ml_algo_name}")
-
-    return feat_pipe, default_params, ml_algo
 
 
 class ProgressReportingOptunaTuner(ParallelOptunaTuner):
@@ -138,29 +120,6 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
                 return obj_score
 
         return objective
-
-
-class ReportingParallelComputeSession(ParallelComputationsSession):
-    def __init__(self, dataset: SparkDataset, parallelism: int, use_location_prefs_mode: int):
-        super().__init__(dataset, parallelism, use_location_prefs_mode)
-        self.prepare_dataset_time: Optional[float] = None
-
-    def _make_slots_on_dataset_copies_coalesced_into_preffered_locations(self, dataset: SparkDataset) \
-            -> List[ComputationSlot]:
-        with log_exec_timer("prepare_dataset_with_locations_prefferences") as timer:
-            result = super()._make_slots_on_dataset_copies_coalesced_into_preffered_locations(dataset)
-        self.prepare_dataset_time = timer.duration
-        return result
-
-
-class ReportingParallelComputionsManager(ParallelComputationsManager):
-    def __init__(self, parallelism: int = 1, use_location_prefs_mode: bool = False):
-        super().__init__(parallelism, use_location_prefs_mode)
-        self.last_session: Optional[ReportingParallelComputeSession] = None
-
-    def session(self, dataset: Optional[SparkDataset] = None) -> ParallelComputationsSession:
-        self.last_session = ReportingParallelComputeSession(dataset, self._parallelism, self._use_location_prefs_mode)
-        return self.last_session
 
 
 if __name__ == "__main__":

@@ -6,9 +6,13 @@ import mlflow
 from dataclasses import dataclass, field
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as sf
+from sparklightautoml.computations.base import ComputationSlot
+from sparklightautoml.computations.parallel import ParallelComputationsSession, ParallelComputationsManager
 from sparklightautoml.computations.utils import get_executors, get_executors_cores
 from sparklightautoml.dataset import persistence
 from sparklightautoml.dataset.base import PersistenceManager, PersistableDataFrame, SparkDataset, PersistenceLevel
+from sparklightautoml.ml_algo.boost_lgbm import SparkBoostLGBM
+from sparklightautoml.ml_algo.linear_pyspark import SparkLinearLBFGS
 from sparklightautoml.utils import SparkDataFrame, log_exec_timer
 
 BUCKET_NUMS = 16
@@ -460,3 +464,43 @@ def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float,
     test_dataset.set_data(test, dataset.features, roles=dataset.roles)
 
     return train_dataset, test_dataset
+
+
+class ReportingParallelComputeSession(ParallelComputationsSession):
+    def __init__(self, dataset: SparkDataset, parallelism: int, use_location_prefs_mode: int):
+        super().__init__(dataset, parallelism, use_location_prefs_mode)
+        self.prepare_dataset_time: Optional[float] = None
+
+    def _make_slots_on_dataset_copies_coalesced_into_preffered_locations(self, dataset: SparkDataset) \
+            -> List[ComputationSlot]:
+        with log_exec_timer("prepare_dataset_with_locations_prefferences") as timer:
+            result = super()._make_slots_on_dataset_copies_coalesced_into_preffered_locations(dataset)
+        self.prepare_dataset_time = timer.duration
+        return result
+
+
+class ReportingParallelComputionsManager(ParallelComputationsManager):
+    def __init__(self, parallelism: int = 1, use_location_prefs_mode: bool = False):
+        super().__init__(parallelism, use_location_prefs_mode)
+        self.last_session: Optional[ReportingParallelComputeSession] = None
+
+    def session(self, dataset: Optional[SparkDataset] = None) -> ParallelComputationsSession:
+        self.last_session = ReportingParallelComputeSession(dataset, self._parallelism, self._use_location_prefs_mode)
+        return self.last_session
+
+
+def get_ml_algo():
+    ml_algo_name = os.environ.get("EXP_ML_ALGO", "linear_l2")
+
+    if ml_algo_name == "linear_l2":
+        feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
+        default_params = {'regParam': [1e-5], "maxIter": 100, "aggregationDepth": 2, "tol": 0.0}
+        ml_algo = SparkLinearLBFGS(default_params)
+    elif ml_algo_name == "lgb":
+        feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
+        default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
+        ml_algo = SparkBoostLGBM(default_params, use_barrier_execution_mode=True)
+    else:
+        raise ValueError(f"Unknown ml algo: {ml_algo_name}")
+
+    return feat_pipe, default_params, ml_algo
