@@ -111,7 +111,7 @@ ${exp_vars} \
 --conf "spark.excludeOnFailure.stage.maxFailedExecutorsPerNode=1" \
 --conf "spark.excludeOnFailure.application.maxFailedTasksPerExecutor=1" \
 --conf "spark.excludeOnFailure.application.maxFailedExecutorsPerNode=1" \
---conf "spark.jars.packages=ai.catboost:catboost-spark_3.2_2.12:1.2"\
+--conf "spark.jars.packages=ai.catboost:catboost-spark_3.2_2.12:1.2" \
 --files "/src/log4j.properties" \
 --py-files "/src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl,/src/examples-spark/*,/src/tabular_config.yml" \
 --num-executors "${EXECUTOR_INSTANCES}" \

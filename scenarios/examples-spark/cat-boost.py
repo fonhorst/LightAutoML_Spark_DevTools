@@ -94,7 +94,7 @@ if __name__ == "__main__":
     exec_cores = 4 if spark.sparkContext.master.startswith("local") \
         else int(spark.conf.get("spark.executor.cores"))
 
-    dataset_name = os.environ.get("DATASET", "lama_test_dataset")
+    dataset_name = os.environ.get("DATASET", "used_cars_dataset")
     parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
     feat_pipe = "lgb_adv"
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
@@ -154,7 +154,11 @@ if __name__ == "__main__":
             evalPool = catboost_spark.Pool(
                 assembler.transform(test_ds.data).select("features", sf.col(ds.target_column).alias('label'))
             )
-            classifier = catboost_spark.CatBoostClassifier(**default_params)
+
+            if ds.task.name == "binary":
+                classifier = catboost_spark.CatBoostClassifier(**default_params)
+            else:
+                classifier = catboost_spark.CatBoostRegressor(**default_params)
 
             # train a model
             model = classifier.fit(trainPool, evalDatasets=[evalPool])
