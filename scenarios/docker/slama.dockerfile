@@ -15,6 +15,7 @@ RUN mkdir -p /src
 RUN pip install click mlflow-skinny
 
 COPY yarn-submit /src
+COPY cb-yarn-submit /src
 RUN chmod 755 /src/yarn-submit
 
 COPY tabular_config.yml /src

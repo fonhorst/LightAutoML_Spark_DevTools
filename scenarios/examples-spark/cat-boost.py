@@ -47,21 +47,21 @@ def obtain_spark_session() -> SparkSession:
     return spark_sess
 
 
-def train_test_split(dataset: SparkDataset, test_slice_or_fold_num: Union[float, int] = 0.2) \
+def train_test_split(dataset: SparkDataset,
+                     exec_instances: int,
+                     exec_cores: int,
+                     test_slice_or_fold_num: Union[float, int] = 0.2) \
         -> Tuple[SparkDataset, SparkDataset]:
-
-    spark = SparkSession.getActiveSession()
-    exec_instances = int(spark.conf.get('spark.executor.instances', '1'))
 
     if isinstance(test_slice_or_fold_num, float):
         assert 0 <= test_slice_or_fold_num <= 1
         train, test = dataset.data.randomSplit([1 - test_slice_or_fold_num, test_slice_or_fold_num])
     else:
         train = dataset.data.where(sf.col(dataset.folds_column) != test_slice_or_fold_num).repartition(
-            1 * exec_instances
+            exec_cores * exec_instances
         )
         test = dataset.data.where(sf.col(dataset.folds_column) == test_slice_or_fold_num).repartition(
-            1 * exec_instances
+            exec_cores * exec_instances
         )
 
     train, test = train.cache(), test.cache()
@@ -88,37 +88,19 @@ if __name__ == "__main__":
     spark = obtain_spark_session()
     import catboost_spark
 
+    exec_instances = 4 if spark.sparkContext.master.startswith("local") \
+        else int(spark.conf.get("spark.executor.instances"))
+
+    exec_cores = 4 if spark.sparkContext.master.startswith("local") \
+        else int(spark.conf.get("spark.executor.cores"))
+
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
     feat_pipe = "lgb_adv"
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
-    # default_params = {
-    #     # "task_type": "CPU",
-    #     "threadCount": 4,
-    #     "randomSeed": 42,
-    #     "iterations": 500, # "num_trees": 3000,
-    #     "earlyStoppingRounds": 50_000,
-    #     "learningRate": 0.05,
-    #     "l2LeafReg": 1e-2,
-    #     "bootstrapType": "Bernoulli",
-    #     # "grow_policy": "SymmetricTree",
-    #     "depth":  5, # "max_depth": 5,
-    #     # "min_data_in_leaf": 1,
-    #     "oneHotMaxSize": 10,
-    #     "foldPermutationBlock": 1,
-    #     # "boosting_type": "Plain",
-    #     # "boost_from_average": True,
-    #     "odType": "Iter",
-    #     "odWait": 100,
-    #     # "max_bin": 32,
-    #     "featureBorderType": "GreedyLogSum",
-    #     "nanMode": "Min",
-    #     # "verbose": 100,
-    #     "allowWritingFiles": False
-    # }
     default_params = {
         # "task_type": "CPU",
-        "threadCount": 4,
+        "threadCount": exec_cores,
         "randomSeed": 42,
         "iterations": 500, # "num_trees": 3000,
         "earlyStoppingRounds": 50_000,
@@ -147,7 +129,8 @@ if __name__ == "__main__":
         persistence_manager=PlainCachePersistenceManager()
     )
 
-    train_ds, test_ds = train_test_split(ds, test_slice_or_fold_num=4)
+    train_ds, test_ds = train_test_split(ds, exec_instances=exec_instances,
+                                         exec_cores=exec_cores, test_slice_or_fold_num=4)
     assembler = VectorAssembler(inputCols=ds.features, outputCol="features", handleInvalid="keep")
 
     with mlflow.start_run(experiment_id=os.environ["EXPERIMENT"]):
@@ -155,6 +138,7 @@ if __name__ == "__main__":
             "app_id": spark.sparkContext.applicationId,
             "app_name": spark.sparkContext.appName,
             "dataset": dataset_name,
+            "ml_algo_name": "cb",
             "dataset_path": dataset_path,
             "feat_pipe": feat_pipe,
             "mlalgo_default_params": default_params,
