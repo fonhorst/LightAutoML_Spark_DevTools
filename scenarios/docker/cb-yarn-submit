@@ -58,6 +58,7 @@ exp_vars=$(printenv | grep '^EXP_' | awk '{print "--conf spark.yarn.appMasterEnv
 #--conf "spark.executor.memoryOverhead=40800" \
 # we intentionally remove this property
 #--conf "spark.default.parallelism=${PARTITION_NUM}" \
+#--conf "spark.jars.packages=ai.catboost:catboost-spark_3.2_2.12:1.2" \
 spark-submit \
 --master yarn \
 --deploy-mode cluster \
@@ -117,3 +118,6 @@ ${exp_vars} \
 --num-executors "${EXECUTOR_INSTANCES}" \
 --jars "/src/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar" \
 "${SCRIPT}"
+
+#--conf "spark.executor.extraClassPath=/jars/catboost_3.2_2.12_1.2_jars/*" \
+#--conf "spark.driver.extraClassPath=/jars/catboost_3.2_2.12_1.2_jars/*" \

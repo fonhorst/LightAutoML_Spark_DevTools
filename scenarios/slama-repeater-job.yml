@@ -37,7 +37,7 @@ spec:
 #          - "--config=/src/conf/scalability-mlalgo-config.py"
           - "--config=/src/conf/scalability-cb-config.py"
           - "--runs-log-dir=/opt/spark_data/repeater-logs"
-          - "--parallel=4"
+          - "--parallel=1"
           - "--mlflow-tracking-uri=http://node2.bdcl:8811"
           - "--tag=optuna-run"
         env:

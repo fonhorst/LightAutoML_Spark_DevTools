@@ -2,8 +2,8 @@ import itertools
 
 executors = ["1", "2", "4", "8"]
 # datasets = ["used_cars_dataset_1x", "kaggle_a"]
-# datasets = ["used_cars_dataset_1x"]
-datasets = ["lama_test_dataset"]
+datasets = ["kaggle_a"]
+# datasets = ["lama_test_dataset"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
