@@ -1,5 +1,6 @@
 import inspect
 import os
+import itertools
 from typing import Tuple, Optional, Union, List, Callable, Dict, Any
 
 import mlflow
@@ -38,6 +39,18 @@ def ds_path(rel_path: str) -> str:
     return os.path.join(BASE_DATASETS_PATH, rel_path)
 
 
+def rows_to_name(rows_count: int) -> str:
+    num = rows_count / 1_000_000
+    if (rows_count % 1_000_000 == 0) and num >= 1:
+        return f"{num}m"
+
+    num = rows_count / 1_000
+    if (rows_count % 1_000) and num >= 1:
+        return f"{num}k"
+
+    raise ValueError(f"Invalid count to make it into an abbreviation: {rows_count}")
+
+
 used_cars_params = {
     "task_type": "reg",
     "roles": {
@@ -56,6 +69,18 @@ used_cars_params = {
         'is_oemcpo': 'str', 'salvage': 'str', 'theft_title': 'str', 'franchise_dealer': 'str'
     }
 }
+
+TEST_CARDINALITY_DATASETS = {
+    f"test_cardinality_{rows_to_name(rows)}_{cols}c": Dataset(
+        path=ds_path(f'data_for_LE_TE_tests/{rows}_rows_{cols}_columns_id_with_reg_target.parquet'),
+        roles={'target': 'target'},
+        task_type='reg',
+        file_format="parquet",
+        file_format_options={}
+    ) for rows, cols in itertools.product([100000, 250000, 500000, 1000000], [10, 100, 200, 500])
+}
+
+
 DATASETS = {
     "used_cars_dataset": Dataset(
         path=ds_path("small_used_cars_data.csv"),
@@ -199,37 +224,39 @@ DATASETS = {
         task_type='binary'
     ),
 
-    "test_cardinality_1m_10c": Dataset(
-        path=ds_path('data_for_LE_TE_tests/1000000_rows_10_columns_id_with_reg_target.parquet'),
-        roles={'target': 'target'},
-        task_type='reg',
-        file_format="parquet",
-        file_format_options={}
-    ),
+    **TEST_CARDINALITY_DATASETS
 
-    "test_cardinality_1m_100c": Dataset(
-        path=ds_path('data_for_LE_TE_tests/1000000_rows_100_columns_id_with_reg_target.parquet'),
-        roles={'target': 'target'},
-        task_type='reg',
-        file_format="parquet",
-        file_format_options={}
-    ),
-
-    "test_cardinality_1m_200c": Dataset(
-        path=ds_path('data_for_LE_TE_tests/1000000_rows_200_columns_id_with_reg_target.parquet'),
-        roles={'target': 'target'},
-        task_type='reg',
-        file_format="parquet",
-        file_format_options={}
-    ),
-
-    "test_cardinality_1m_500c": Dataset(
-        path=ds_path('data_for_LE_TE_tests/1000000_rows_500_columns_id_with_reg_target.parquet'),
-        roles={'target': 'target'},
-        task_type='reg',
-        file_format="parquet",
-        file_format_options={}
-    ),
+    # "test_cardinality_1m_10c": Dataset(
+    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_10_columns_id_with_reg_target.parquet'),
+    #     roles={'target': 'target'},
+    #     task_type='reg',
+    #     file_format="parquet",
+    #     file_format_options={}
+    # ),
+    #
+    # "test_cardinality_1m_100c": Dataset(
+    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_100_columns_id_with_reg_target.parquet'),
+    #     roles={'target': 'target'},
+    #     task_type='reg',
+    #     file_format="parquet",
+    #     file_format_options={}
+    # ),
+    #
+    # "test_cardinality_1m_200c": Dataset(
+    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_200_columns_id_with_reg_target.parquet'),
+    #     roles={'target': 'target'},
+    #     task_type='reg',
+    #     file_format="parquet",
+    #     file_format_options={}
+    # ),
+    #
+    # "test_cardinality_1m_500c": Dataset(
+    #     path=ds_path('data_for_LE_TE_tests/1000000_rows_500_columns_id_with_reg_target.parquet'),
+    #     roles={'target': 'target'},
+    #     task_type='reg',
+    #     file_format="parquet",
+    #     file_format_options={}
+    # ),
 }
 
 
