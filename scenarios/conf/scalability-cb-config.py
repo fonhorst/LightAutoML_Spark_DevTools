@@ -4,8 +4,12 @@ import itertools
 # datasets = ["used_cars_dataset_1x", "kaggle_a"]
 # datasets = ["lama_test_dataset"]
 
+# executors = ["16"]
+# datasets = ["kaggle_a"]
+
+# executors = ["1", "2", "4", "8"]
 executors = ["16"]
-datasets = ["kaggle_a"]
+datasets = ["synth_10kk_100", "synth_5kk_100"]
 
 # executors = ["1", "2", "4", "8", "16"]
 # datasets = ["synth_10kk_100", "synth_5kk_100"]

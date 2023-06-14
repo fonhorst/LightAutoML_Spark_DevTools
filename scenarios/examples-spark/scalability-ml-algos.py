@@ -19,20 +19,25 @@ def get_ml_algo():
         feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
         default_params = {'regParam': [1e-5], "maxIter": 100, "aggregationDepth": 2, "tol": 0.0}
         ml_algo = SparkLinearLBFGS(default_params)
+        tag = ml_algo_name
     elif ml_algo_name == "lgb":
+        use_single_dataset_mode = False
         feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
         default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
-        ml_algo = SparkBoostLGBM(default_params, use_barrier_execution_mode=True)
+        ml_algo = SparkBoostLGBM(default_params,
+                                 use_barrier_execution_mode=use_single_dataset_mode,
+                                 use_single_dataset_mode=use_single_dataset_mode)
+        tag = ml_algo_name if use_single_dataset_mode else f"{ml_algo_name}_no_single_dataset_mode"
     else:
         raise ValueError(f"Unknown ml algo: {ml_algo_name}")
 
-    return feat_pipe, default_params, ml_algo
+    return feat_pipe, default_params, ml_algo, ml_algo_name, tag
 
 
 def main():
     spark = get_spark_session()
 
-    feat_pipe, default_params, ml_algo = get_ml_algo()
+    feat_pipe, default_params, ml_algo, ml_algo_name, tag = get_ml_algo()
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
 
@@ -53,6 +58,8 @@ def main():
             "dataset": dataset_name,
             "dataset_path": dataset_path,
             "feat_pipe": feat_pipe,
+            "ml_algo_name": ml_algo_name,
+            "tag": tag,
             "mlalgo_default_params": default_params,
             "exec_instances": spark.conf.get('spark.executor.instances'),
             "exec_cores": spark.conf.get('spark.executor.cores'),

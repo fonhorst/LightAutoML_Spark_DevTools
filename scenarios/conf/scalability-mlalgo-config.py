@@ -9,9 +9,15 @@ import itertools
 # executors = ["16"]
 # ml_algos = ["linear_l2", "lgb"]
 
-executors = ["1", "2", "4", "8"]
-ml_algos = ["linear_l2", "lgb"]
-datasets = ["synth_10kk_100", "synth_5kk_100"]
+# executors = ["1", "2", "4", "8"]
+# executors = ["16"]
+# ml_algos = ["linear_l2", "lgb"]
+# datasets = ["synth_10kk_100", "synth_5kk_100"]
+
+# executors = ["1", "2", "4", "8"]
+executors = ["16"]
+ml_algos = ["lgb"]
+datasets = ["used_cars_dataset_1x", "kaggle_a", "synth_10kk_100", "synth_5kk_100"]
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
