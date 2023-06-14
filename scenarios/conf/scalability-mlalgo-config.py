@@ -33,6 +33,7 @@ configurations = {
                 "SLAMA_WHEEL_VERSION": "0.3.2",
                 "SLAMA_JAR_VERSION": "0.1.1",
                 "EXP_ML_ALGO": ml_algo,
+                "EXP_LGB_SINGLE_DATASET_MODE": "1", # "0" for no single dataset mode for lgb case
                 "DATASET": dataset,
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",

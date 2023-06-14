@@ -130,7 +130,7 @@ if __name__ == "__main__":
     n_trials = 64
     timeout = 60000
     stabilize = False
-    feat_pipe, default_params, ml_algo = get_ml_algo()
+    feat_pipe, default_params, ml_algo, ml_algo_name, tag = get_ml_algo()
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
 
     # load and prepare data
@@ -173,6 +173,8 @@ if __name__ == "__main__":
             "dataset": dataset_name,
             "dataset_path": dataset_path,
             "feat_pipe": feat_pipe,
+            "ml_algo_name": ml_algo_name,
+            "tag": tag,
             "optuna_n_trials": n_trials,
             "optuna_timeout": timeout,
             "optuna_parallelism": parallelism,

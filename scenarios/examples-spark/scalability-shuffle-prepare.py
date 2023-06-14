@@ -24,7 +24,7 @@ if __name__ == "__main__":
     n_trials = 64
     timeout = 60000
     stabilize = False
-    feat_pipe, default_params, ml_algo = get_ml_algo()
+    feat_pipe, default_params, ml_algo, _, _ = get_ml_algo()
     dataset_path = f"file:///opt/spark_data/preproccessed_datasets/{dataset_name}__{feat_pipe}__features.dataset"
 
     with mlflow.start_run(experiment_id=os.environ["EXPERIMENT"]):

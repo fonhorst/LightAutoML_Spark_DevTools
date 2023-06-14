@@ -545,14 +545,34 @@ def get_ml_algo():
         feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
         default_params = {'regParam': [1e-5], "maxIter": 100, "aggregationDepth": 2, "tol": 0.0}
         ml_algo = SparkLinearLBFGS(default_params)
+        tag = ml_algo_name
     elif ml_algo_name == "lgb":
+        use_single_dataset_mode = int(os.environ.get("EXP_LGB_SINGLE_DATASET_MODE", "1")) == 1
         feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
         default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
-        ml_algo = SparkBoostLGBM(default_params, use_barrier_execution_mode=True)
+        ml_algo = SparkBoostLGBM(default_params,
+                                 use_barrier_execution_mode=True,
+                                 use_single_dataset_mode=use_single_dataset_mode)
+        tag = ml_algo_name if use_single_dataset_mode else f"{ml_algo_name}_no_single_dataset_mode"
     else:
         raise ValueError(f"Unknown ml algo: {ml_algo_name}")
 
-    return feat_pipe, default_params, ml_algo
+    return feat_pipe, default_params, ml_algo, ml_algo_name, tag
+# def get_ml_algo():
+#     ml_algo_name = os.environ.get("EXP_ML_ALGO", "linear_l2")
+#
+#     if ml_algo_name == "linear_l2":
+#         feat_pipe = "linear"  # linear, lgb_simple or lgb_adv
+#         default_params = {'regParam': [1e-5], "maxIter": 100, "aggregationDepth": 2, "tol": 0.0}
+#         ml_algo = SparkLinearLBFGS(default_params)
+#     elif ml_algo_name == "lgb":
+#         feat_pipe = "lgb_adv"  # linear, lgb_simple or lgb_adv
+#         default_params = {"numIterations": 500, "earlyStoppingRound": 50_000}
+#         ml_algo = SparkBoostLGBM(default_params, use_barrier_execution_mode=True)
+#     else:
+#         raise ValueError(f"Unknown ml algo: {ml_algo_name}")
+#
+#     return feat_pipe, default_params, ml_algo
 
 
 def check_allocated_executors():
