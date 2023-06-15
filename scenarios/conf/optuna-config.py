@@ -1,10 +1,13 @@
 import itertools
 
-parallelism_degrees = ["1", "2", "4", "8", "16"]
+# parallelism_degrees = ["1", "2", "4", "8", "16"]
+# parallelism_degrees = ["32", "16", "8", "4"]
+parallelism_degrees = ["32"]
 
 datasets = [
-    "used_cars_dataset_1x",
-    # "kaggle_a",
+    # "used_cars_dataset_1x",
+    "kaggle_a_1.5x",
+    # "kaggle_a_2x",
     # "synth_10kk_100",
     # "synth_5kk_100"
     # "lama_test_dataset"
@@ -25,12 +28,12 @@ configurations = {
                 "SLAMA_JAR_VERSION": "0.1.1",
                 "DATASET": datset,
                 "EXP_ML_ALGO": "lgb",
-                "EXP_LGB_SINGLE_DATASET_MODE": "0",
+                "EXP_LGB_SINGLE_DATASET_MODE": "1",
                 "EXP_JOB_PARALLELISM": parallelism,
                 "DRIVER_CORES": "6",
                 "DRIVER_MEMORY": "16g",
                 "DRIVER_MAX_RESULT_SIZE": "5g",
-                "EXECUTOR_INSTANCES": "16",
+                "EXECUTOR_INSTANCES": "32",
                 "EXECUTOR_CORES": "4",
                 "EXECUTOR_MEMORY": "40g",
                 "PYSPARK_PYTHON_PATH": "/python_envs/.replay_venv/bin/python3.9",

@@ -200,6 +200,18 @@ DATASETS = {
         roles={'target': 'team_A_scoring_within_10sec', 'drop': ['team_B_scoring_within_10sec']}
     ),
 
+    "kaggle_a_2x":Dataset(
+        path=ds_path("kaggle-a/train_data_2x"),
+        task_type="binary",
+        roles={'target': 'team_A_scoring_within_10sec', 'drop': ['team_B_scoring_within_10sec']}
+    ),
+
+    "kaggle_a_1.5x":Dataset(
+        path=ds_path("kaggle-a/train_data_1.5x"),
+        task_type="binary",
+        roles={'target': 'team_A_scoring_within_10sec', 'drop': ['team_B_scoring_within_10sec']}
+    ),
+
     "synth_10kk_100": Dataset(
         path=ds_path('synth_datasets/synth_dataset_classification_n_10_000_000_f_100.csv'),
         roles={'target': 'target'},

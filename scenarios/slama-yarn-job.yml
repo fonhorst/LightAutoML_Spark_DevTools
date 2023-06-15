@@ -66,7 +66,8 @@ spec:
 #            value: "synth_5kk_100"
 #            value: "used_cars_dataset_07x"
 #            value: "synth_7kk_100"
-            value: "synth_1kk_100"
+#            value: "synth_1kk_100"
+            value: "kaggle_a_1.5x"
           - name: WAREHOUSE_DIR
             value: "hdfs://node21.bdcl:9000/tmp/slama-spark-warehouse-1x"
           - name: EXP_JOB_PARALLELISM
