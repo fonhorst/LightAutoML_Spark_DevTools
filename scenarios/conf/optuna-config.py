@@ -2,16 +2,19 @@ import itertools
 
 # parallelism_degrees = ["1", "2", "4", "8", "16"]
 # parallelism_degrees = ["32", "16", "8", "4"]
-parallelism_degrees = ["32"]
+# parallelism_degrees = ["32"]
+parallelism_degrees = ["2", "1"]
 
 datasets = [
     # "used_cars_dataset_1x",
-    "kaggle_a_1.5x",
+    "kaggle_a",
+    # "kaggle_a_1.5x",
     # "kaggle_a_2x",
     # "synth_10kk_100",
     # "synth_5kk_100"
     # "lama_test_dataset"
 ]
+
 
 configurations = {
     "path_to_save_params": "/tmp/experimental_parameters",
