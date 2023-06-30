@@ -12,6 +12,7 @@ from lightautoml.ml_algo.tuning.optuna import TunableAlgo
 from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
 from sparklightautoml.computations.base import ComputationsSettings
+from sparklightautoml.computations.sequential import SequentialComputationsManager
 from sparklightautoml.computations.utils import deecopy_tviter_without_dataset
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
@@ -24,8 +25,8 @@ from sparklightautoml.validation.iterators import SparkFoldsIterator
 from examples_utils import get_spark_session, train_test_split, ReportingParallelComputionsManager, \
     get_ml_algo, check_allocated_executors
 
-logging.config.dictConfig(logging_config(level=logging.DEBUG, log_filename='/tmp/slama.log'))
-logging.basicConfig(level=logging.DEBUG, format=VERBOSE_LOGGING_FORMAT)
+logging.config.dictConfig(logging_config(level=logging.INFO, log_filename='/tmp/slama.log'))
+logging.basicConfig(level=logging.INFO, format=VERBOSE_LOGGING_FORMAT)
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +47,8 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
 
     def _optimize(self, ml_algo: SparkTabularMLAlgo, train_valid_iterator: SparkBaseTrainValidIterator,
                   update_trial_time: Callable[[optuna.study.Study, optuna.trial.FrozenTrial], None]):
+        logger.info(f"Parallelism of the manager: {self._computations_manager.parallelism}")
+
         with log_exec_timer("optimize_time") as timer:
             super()._optimize(ml_algo, train_valid_iterator, update_trial_time)
         self.optimize_time = timer.duration
@@ -63,6 +66,11 @@ class ProgressReportingOptunaTuner(ParallelOptunaTuner):
             with self._session.allocate() as slot:
                 assert slot.dataset is not None
                 _ml_algo = deepcopy(ml_algo)
+                logger.info(f"Slot allocated for parallel optuna with: {slot}")
+                _ml_algo.computations_manager = SequentialComputationsManager(
+                    num_tasks=slot.num_tasks,
+                    num_threads_per_executor=slot.num_threads_per_executor
+                )
                 tv_iter = deecopy_tviter_without_dataset(train_valid_iterator)
                 tv_iter.train = slot.dataset
 
@@ -127,6 +135,7 @@ if __name__ == "__main__":
 
     dataset_name = os.environ.get("DATASET", "lama_test_dataset")
     parallelism = int(os.environ.get("EXP_JOB_PARALLELISM", "1"))
+    logger.info(f"Parallelism level: {parallelism}")
     n_trials = 64
     timeout = 60000
     stabilize = False
@@ -145,8 +154,8 @@ if __name__ == "__main__":
 
     # create main entities
     computations_manager_optuna = \
-        ReportingParallelComputionsManager(parallelism=parallelism, use_location_prefs_mode=True)
-    computations_manager_boosting = ReportingParallelComputionsManager(parallelism=1, use_location_prefs_mode=True)
+        ReportingParallelComputionsManager(parallelism=parallelism, use_location_prefs_mode=False)
+    computations_manager_boosting = ReportingParallelComputionsManager(parallelism=1, use_location_prefs_mode=False)
     iterator = SparkFoldsIterator(train_ds).convert_to_holdout_iterator()
     with mlflow.start_run(experiment_id=os.environ["EXPERIMENT"]):
         tuner = ProgressReportingOptunaTuner(
@@ -187,38 +196,38 @@ if __name__ == "__main__":
         with log_exec_timer("ml_algo_time") as fit_timer:
             model, oof_preds = tune_and_fit_predict(ml_algo, tuner, iterator)
 
-        mlflow.log_metric(fit_timer.name, fit_timer.duration)
-        mlflow.log_metric("optuna_optimize_time", tuner.optimize_time)
-        mlflow.log_metric(
-            "optuna_prepare_dataset_pref_locs_time",
-            computations_manager_optuna.last_session.prepare_dataset_time
-        )
-        mlflow.log_dict(tuner.run_reports, "run_reports.json")
+        # mlflow.log_metric(fit_timer.name, fit_timer.duration)
+        # mlflow.log_metric("optuna_optimize_time", tuner.optimize_time)
+        # mlflow.log_metric(
+        #     "optuna_prepare_dataset_pref_locs_time",
+        #     computations_manager_optuna.last_session.prepare_dataset_time
+        # )
+        # mlflow.log_dict(tuner.run_reports, "run_reports.json")
 
-        test_preds = ml_algo.predict(test_ds)
-
-        with log_exec_timer("oof_score_time") as oof_timer:
-            # estimate oof and test metrics
-            oof_metric_value = score(oof_preds.data.select(
-                SparkDataset.ID_COLUMN,
-                sf.col(ds.target_column).alias('target'),
-                sf.col(ml_algo.prediction_feature).alias('prediction')
-            ))
-
-        mlflow.log_metric(oof_timer.name, oof_timer.duration)
-        mlflow.log_metric("oof_metric_value", oof_metric_value)
-
-        with log_exec_timer("test_score_time") as test_timer:
-            test_metric_value = score(test_preds.data.select(
-                SparkDataset.ID_COLUMN,
-                sf.col(ds.target_column).alias('target'),
-                sf.col(ml_algo.prediction_feature).alias('prediction')
-            ))
-
-        mlflow.log_metric(test_timer.name, test_timer.duration)
-        mlflow.log_metric("test_metric_value", test_metric_value)
-
-        print(f"OOF metric: {oof_metric_value}")
-        print(f"Test metric: {oof_metric_value}")
+        # test_preds = ml_algo.predict(test_ds)
+        #
+        # with log_exec_timer("oof_score_time") as oof_timer:
+        #     # estimate oof and test metrics
+        #     oof_metric_value = score(oof_preds.data.select(
+        #         SparkDataset.ID_COLUMN,
+        #         sf.col(ds.target_column).alias('target'),
+        #         sf.col(ml_algo.prediction_feature).alias('prediction')
+        #     ))
+        #
+        # mlflow.log_metric(oof_timer.name, oof_timer.duration)
+        # mlflow.log_metric("oof_metric_value", oof_metric_value)
+        #
+        # with log_exec_timer("test_score_time") as test_timer:
+        #     test_metric_value = score(test_preds.data.select(
+        #         SparkDataset.ID_COLUMN,
+        #         sf.col(ds.target_column).alias('target'),
+        #         sf.col(ml_algo.prediction_feature).alias('prediction')
+        #     ))
+        #
+        # mlflow.log_metric(test_timer.name, test_timer.duration)
+        # mlflow.log_metric("test_metric_value", test_metric_value)
+        #
+        # print(f"OOF metric: {oof_metric_value}")
+        # print(f"Test metric: {oof_metric_value}")
 
     spark.stop()
