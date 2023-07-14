@@ -119,8 +119,9 @@ ${exp_vars} \
 --conf "spark.excludeOnFailure.stage.maxFailedExecutorsPerNode=1" \
 --conf "spark.excludeOnFailure.application.maxFailedTasksPerExecutor=1" \
 --conf "spark.excludeOnFailure.application.maxFailedExecutorsPerNode=1" \
---files "/src/log4j.properties" \
 --py-files "/src/SparkLightAutoML-${SLAMA_WHEEL_VERSION}-py3-none-any.whl,/src/examples-spark/*,/src/tabular_config.yml" \
 --num-executors "${EXECUTOR_INSTANCES}" \
 --jars "/src/spark-lightautoml_2.12-${SLAMA_JAR_VERSION}.jar" \
 "${SCRIPT}"
+
+#--files "/src/log4j.properties" \

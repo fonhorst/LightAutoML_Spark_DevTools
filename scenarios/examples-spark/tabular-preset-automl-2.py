@@ -2,17 +2,18 @@ import logging.config
 import os
 import uuid
 
-import mlflow
+import pandas as pd
 import pyspark.sql.functions as sf
 from pyspark.ml import PipelineModel
 from pyspark.sql import SparkSession
 from sparklightautoml.automl.presets.tabular_presets import SparkTabularAutoML
-from sparklightautoml.dataset.base import SparkDataset, PersistenceLevel
+from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.tasks.base import SparkTask
-from sparklightautoml.utils import logging_config, VERBOSE_LOGGING_FORMAT, log_exec_timer as regular_log_exec_timer
+from sparklightautoml.utils import log_exec_timer, logging_config, VERBOSE_LOGGING_FORMAT
 
-from examples_utils import get_dataset, prepare_test_and_train, get_spark_session, \
-    mlflow_log_exec_timer as log_exec_timer, initialize_environment, log_session_params_to_mlflow, check_executors_count
+from examples_utils import check_columns
+from examples_utils import get_dataset, prepare_test_and_train, \
+    initialize_environment
 from examples_utils import get_persistence_manager
 
 uid = uuid.uuid4()
@@ -36,7 +37,8 @@ def main(spark: SparkSession):
     # 2. use_algos = [["lgb_tuned"]]
     # 3. use_algos = [["linear_l2"]]
     # 4. use_algos = [["lgb", "linear_l2"], ["lgb"]]
-    use_algos = [["lgb", "linear_l2"], ["lgb"]]
+    # use_algos = [["lgb", "linear_l2"], ["lgb"]]
+    use_algos = [["lgb"]]
     dataset = get_dataset(dataset_name)
 
     persistence_manager = get_persistence_manager(run_id=str(uid))
@@ -58,11 +60,11 @@ def main(spark: SparkSession):
                 timeout=10000,
                 general_params={"use_algos": use_algos},
                 lgb_params={
-                    'default_params': {'numIterations': 500},
-                    'freeze_defaults': True,
                     'use_single_dataset_mode': True,
+                    'chunk_size': 10_000,
+                    'execution_mode': 'bulk',
                     'convert_to_onnx': False,
-                    'mini_batch_size': 1000
+                    'mini_batch_size': 1000,
                 },
                 linear_l2_params={
                     'default_params': {'regParam': [1e-5]}
@@ -80,67 +82,66 @@ def main(spark: SparkSession):
 
         logger.info("Predicting on out of fold")
 
-        train_data.write.parquet("/tmp/train_data_tabular_preset.parquet", mode='overwrite')
-        oof_predictions.data.write.parquet("/tmp/oof_predictions_tabular_preset.parquet", mode='overwrite')
+    score = task.get_dataset_metric()
+    metric_value = score(oof_predictions)
+
+    logger.info(f"score for out-of-fold predictions: {metric_value}")
+
+    transformer = automl.transformer()
+
+    oof_predictions.unpersist()
+    # this is necessary if persistence_manager is of CompositeManager type
+    # it may not be possible to obtain oof_predictions (predictions from fit_predict) after calling unpersist_all
+    automl.persistence_manager.unpersist_all()
+
+    test_column = "some_external_column"
+    test_data_dropped = test_data_dropped.withColumn(test_column, sf.lit(42.0))
+
+    with log_exec_timer("spark-lama predicting on test (#1 way)") as predict_timer:
+        te_pred = automl.predict(test_data_dropped, add_reader_attrs=True)
 
         score = task.get_dataset_metric()
-        metric_value = score(oof_predictions)
+        test_metric_value = score(te_pred)
 
-        logger.info(f"score for out-of-fold predictions: {metric_value}")
+        logger.info(f"score for test predictions: {test_metric_value}")
 
-        mlflow.log_metric("oof_score", metric_value)
+    with log_exec_timer("spark-lama predicting on test (#2 way)"):
+        te_pred = automl.transformer().transform(test_data_dropped)
 
-        transformer = automl.transformer()
+        check_columns(test_data_dropped, te_pred)
 
-        oof_predictions.persist(level=PersistenceLevel.CHECKPOINT)
-        # TODO: return unpersisting back
-        # oof_predictions.unpersist()
-        # this is necessary if persistence_manager is of CompositeManager type
-        # it may not be possible to obtain oof_predictions (predictions from fit_predict) after calling unpersist_all
-        # automl.persistence_manager.unpersist_all()
+        pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
+        score = task.get_dataset_metric()
+        test_metric_value = score(te_pred.select(
+            SparkDataset.ID_COLUMN,
+            sf.col(dataset.roles['target']).alias('target'),
+            sf.col(pred_column).alias('prediction')
+        ))
 
-        with log_exec_timer("predict") as predict_timer:
-            te_pred = automl.predict(test_data_dropped, add_reader_attrs=True)
+        logger.info(f"score for test predictions: {test_metric_value}")
 
-            score = task.get_dataset_metric()
-            test_metric_value = score(te_pred)
+    base_path = "/tmp/spark_results"
+    automl_model_path = os.path.join(base_path, "automl_pipeline")
+    os.makedirs(base_path, exist_ok=True)
 
-            logger.info(f"score for test predictions: {test_metric_value}")
-            mlflow.log_metric("test_score", test_metric_value)
+    with log_exec_timer("saving model") as saving_timer:
+        transformer.write().overwrite().save(automl_model_path)
 
-        with regular_log_exec_timer("spark-lama predicting on test (#2 way)"):
-            te_pred = automl.transformer().transform(test_data_dropped)
+    with log_exec_timer("Loading model time") as loading_timer:
+        pipeline_model = PipelineModel.load(automl_model_path)
 
-            pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
-            score = task.get_dataset_metric()
-            test_metric_value = score(te_pred.select(
-                SparkDataset.ID_COLUMN,
-                sf.col(dataset.roles['target']).alias('target'),
-                sf.col(pred_column).alias('prediction')
-            ))
+    with log_exec_timer("spark-lama predicting on test (#3 way)"):
+        te_pred = pipeline_model.transform(test_data_dropped)
 
-            logger.info(f"score for test predictions: {test_metric_value}")
+        check_columns(test_data_dropped, te_pred)
 
-        base_path = f"/tmp/models/tabular-preset-automl-{uid}"
-        automl_model_path = os.path.join(base_path, "automl_pipeline")
-        os.makedirs(base_path, exist_ok=True)
-
-        with log_exec_timer("model_saving") as saving_timer:
-            transformer.write().overwrite().save(automl_model_path)
-
-        with log_exec_timer("model_loading") as loading_timer:
-            pipeline_model = PipelineModel.load(automl_model_path)
-
-        with regular_log_exec_timer("spark-lama predicting on test (#3 way)"):
-            te_pred = pipeline_model.transform(test_data_dropped)
-
-            pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
-            score = task.get_dataset_metric()
-            test_metric_value = score(te_pred.select(
-                SparkDataset.ID_COLUMN,
-                sf.col(dataset.roles['target']).alias('target'),
-                sf.col(pred_column).alias('prediction')
-            ))
+        pred_column = next(c for c in te_pred.columns if c.startswith('prediction'))
+        score = task.get_dataset_metric()
+        test_metric_value = score(te_pred.select(
+            SparkDataset.ID_COLUMN,
+            sf.col(dataset.roles['target']).alias('target'),
+            sf.col(pred_column).alias('prediction')
+        ))
 
     logger.info(f"score for test predictions via loaded pipeline: {test_metric_value}")
 
@@ -163,9 +164,19 @@ def main(spark: SparkSession):
     train_data.unpersist()
     test_data.unpersist()
 
-    spark.stop()
-
     return result
+
+
+def multirun(spark: SparkSession, dataset_name: str):
+    seeds = [1, 5, 42, 100, 777]
+    results = [main(spark, dataset_name, seed) for seed in seeds]
+
+    df = pd.DataFrame(results)
+
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+        print(df)
+
+    df.to_csv(f"spark-lama_results_{dataset_name}_{uuid.uuid4()}.csv")
 
 
 if __name__ == "__main__":

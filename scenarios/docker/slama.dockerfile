@@ -19,7 +19,7 @@ COPY cb-yarn-submit /src
 RUN chmod 755 /src/yarn-submit
 
 COPY tabular_config.yml /src
-COPY log4j.properties /src
+#COPY log4j.properties /src
 
 ARG SLAMA_WHEEL_VERSION=0.3.2
 ARG SLAMA_JAR_VERSION=0.1.1

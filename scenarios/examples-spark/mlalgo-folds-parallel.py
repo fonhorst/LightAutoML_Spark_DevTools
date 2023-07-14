@@ -9,6 +9,7 @@ from lightautoml.ml_algo.utils import tune_and_fit_predict
 from pyspark.sql import functions as sf
 
 from sparklightautoml.computations.parallel import ParallelComputationsManager
+from sparklightautoml.computations.sequential import SequentialComputationsManager
 from sparklightautoml.computations.utils import get_executors, get_executors_cores
 from sparklightautoml.dataset.base import SparkDataset
 from sparklightautoml.dataset.persistence import PlainCachePersistenceManager
@@ -63,10 +64,15 @@ if __name__ == "__main__":
     train_ds, test_ds = train_ds.persist(), test_ds.persist()
 
     # create main entities
-    computations_manager = ParallelComputationsManager(parallelism=parallelism)
-    iterator = SparkFoldsIterator(train_ds)#.convert_to_holdout_iterator()
+    # computations_manager = ParallelComputationsManager(parallelism=parallelism)
+    computations_manager = SequentialComputationsManager()
+    iterator = SparkFoldsIterator(train_ds).convert_to_holdout_iterator()
     if ml_algo_name == "lgb":
-        ml_algo = SparkBoostLGBM(experimental_parallel_mode=True, computations_settings=computations_manager)
+        ml_algo = SparkBoostLGBM(
+            experimental_parallel_mode=True,
+            computations_settings=computations_manager,
+            execution_mode="streaming"
+        )
     else:
         ml_algo = SparkLinearLBFGS(default_params={'regParam': [1e-5]}, computations_settings=computations_manager)
 
