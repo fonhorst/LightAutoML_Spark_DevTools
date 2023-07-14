@@ -21,7 +21,14 @@ fi
 SCRIPT="$1"
 
 #PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/Python-3.9.12/bin/python3.9"}
-PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/.replay_venv/bin/python3.9"}
+# synapseml 0.9.5 and spark 3.2.0
+#PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/.replay_venv/bin/python3.9"}
+#--conf "spark.executor.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
+#--conf "spark.driver.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
+# synapseml 0.11.1
+PYSPARK_PYTHON_PATH=${PYSPARK_PYTHON_PATH:-"/python_envs/.slama_venv3.9/bin/python3"}
+#--conf "spark.executor.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
+#--conf "spark.driver.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
 
 MAX_JOB_PARALLELISM=${MAX_JOB_PARALLELISM:-"3"}
 PREPARE_FOLD_NUM=${PREPARE_FOLD_NUM:-"5"}
@@ -103,8 +110,8 @@ ${exp_vars} \
 --conf "spark.yarn.historyServer.allowTracking=true" \
 --conf "spark.driver.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true -Dlog4j.configuration=log4j.properties -Dlog4j.debug=true" \
 --conf "spark.executor.extraJavaOptions=-Dio.netty.tryReflectionSetAccessible=true -Dlog4j.configuration=log4j.properties -Dlog4j.debug=true" \
---conf "spark.executor.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
---conf "spark.driver.extraClassPath=/jars/synapseml_0.9.5_jars/*" \
+--conf "spark.executor.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
+--conf "spark.driver.extraClassPath=/jars/slama_synapseml_0.11.1/*" \
 --conf "spark.sql.warehouse.dir=${WAREHOUSE_DIR}" \
 --conf "spark.task.maxFailures=1" \
 --conf "spark.excludeOnFailure.task.maxTaskAttemptsPerNode=1" \

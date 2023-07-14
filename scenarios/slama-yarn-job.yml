@@ -24,6 +24,7 @@ spec:
         volumeMounts:
           - name: hadoop-configs
             mountPath: /etc/hadoop
+        args: ["/src/examples-spark/tabular-preset-automl.py"]
 #        args: ["/src/examples-spark/stage-level-scheduling.py"]
 #        args: ["/src/examples-spark/coalescing-map-reduce.py"]
 #        args: ["/src/examples-spark/feature-processing-parallel.py"]
@@ -33,7 +34,7 @@ spec:
 #        args: ["/src/examples-spark/feature-processing-only.py"]
 #        args: ["/src/examples-spark/feature-processing-parallel.py"]
 #        args: ["/src/examples-spark/lgbm-parallel.py"]
-        args: ["/src/examples-spark/parallel-optuna.py"]
+#        args: ["/src/examples-spark/parallel-optuna.py"]
 #        args: ["/src/examples-spark/test-run.py"]
 #        args: ["/src/examples-spark/reader-only.py"]
 #        args: ["/src/examples-spark/spark-ml-pipe-lgb-light.py"]
@@ -57,8 +58,8 @@ spec:
           - name: EXP_JOB_PARALLELISM
             value: "4"
           - name: PYSPARK_PYTHON_PATH
-#            value: "/python_envs/.slama_venv3.9/bin/python3"
-            value: "/python_envs/.replay_venv/bin/python3.9"
+            value: "/python_envs/.slama_venv3.9/bin/python3"
+#            value: "/python_envs/.replay_venv/bin/python3.9"
           - name: DATASET
             value: "lama_test_dataset"
 #            value: "used_cars_dataset"

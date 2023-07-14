@@ -346,7 +346,7 @@ data:
         <property><name>yarn.resourcemanager.address</name><value>yarn-resourcemanager:8032</value></property>
         <property><name>yarn.resourcemanager.scheduler.address</name><value>yarn-resourcemanager:8030</value></property>
         <property><name>yarn.resourcemanager.resource-tracker.address</name><value>yarn-resourcemanager:8031</value></property>
-        <property><name>yarn.timeline-service.enabled</name><value>true</value></property>
+        <property><name>yarn.timeline-service.enabled</name><value>false</value></property>
         <property><name>yarn.timeline-service.generic-application-history.enabled</name><value>true</value></property>
         <property><name>yarn.timeline-service.bind-host</name><value>0.0.0.0</value></property>
         <property><name>yarn.timeline-service.hostname</name><value>yarn-history-server</value></property>
